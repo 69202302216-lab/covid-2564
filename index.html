@@ -31,11 +31,6 @@
     <style>
         body { font-family: 'Sarabun', sans-serif; }
         #map { width: 100%; height: 450px; min-height: 450px; border-radius: 0.75rem; z-index: 1; }
-        /* ปรับแต่ง Tile ของแผนให้กลมกลืนกับธีมมืด */
-        .leaflet-layer, .leaflet-control-zoom, .leaflet-popup-content-wrapper {
-            filter: hue-rotate(180deg) invert(100%) contrast(90%);
-        }
-        .leaflet-popup-content-wrapper { background-color: #f8fafc !important; color: #0f172a !important; }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
@@ -49,7 +44,7 @@
                 </div>
                 <div>
                     <h1 class="text-2xl font-bold tracking-wide">COVID-19 Thailand Surveillance</h1>
-                    <p class="text-rose-200 text-sm" id="header-status">ระบบเฝ้าระวังและวิเคราะห์ข้อมูลผู้ป่วย (Real-time Stream)</p>
+                    <p class="text-rose-200 text-sm" id="header-status">ระบบเฝ้าระวังและวิเคราะห์ข้อมูลผู้ป่วย (Authenticated API)</p>
                 </div>
             </div>
             <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
@@ -77,8 +72,8 @@
                     <i class="fa-solid fa-sync fa-spin"></i>
                 </div>
                 <div>
-                    <h4 class="font-bold text-red-200 text-sm md:text-base" id="stream-title">กำลังทยอยดึงข้อมูลจาก API แบบเรียลไทม์...</h4>
-                    <p class="text-slate-400 text-xs md:text-sm" id="stream-desc">ระบบกำลังโหลดและอัปเดตกราฟ/แผนทีทีละบล็อก คุณสามารถใช้งานได้ทันที</p>
+                    <h4 class="font-bold text-red-200 text-sm md:text-base" id="stream-title">กำลังดึงข้อมูลผ่าน API ด้วย Key ส่วนตัว...</h4>
+                    <p class="text-slate-400 text-xs md:text-sm" id="stream-desc">ระบบกำลังโหลดและอัปเดตกราฟ/แผนที่แบบเรียลไทม์</p>
                 </div>
             </div>
             <div class="w-full md:w-64 bg-slate-700 rounded-full h-3 overflow-hidden border border-slate-600">
@@ -233,6 +228,7 @@
 
     <script>
         const RESOURCE_ID = '1c2f6045-c600-410a-995c-a37a88594ab4';
+        const API_KEY = 'J3Pzg5kkAUlSlioccm88R55WWEoHQBMo';
         
         let globalData = [];
         let filteredData = [];
@@ -293,7 +289,6 @@
 
         function initMap() {
             if (!map) {
-                // Zoom ระดับ 6 เห็นภาพรวมประเทศไทยทั้งประเทศพอดี
                 map = L.map('map', { zoomControl: true }).setView([13.7367, 100.5231], 6);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     maxZoom: 18,
@@ -313,14 +308,18 @@
             initMap();
 
             try {
-                let firstRes = await fetch(`https://opend.data.go.th/get-ckan/datastore_search?resource_id=${RESOURCE_ID}&limit=1&offset=0`);
+                let firstRes = await fetch(`https://opend.data.go.th/get-ckan/datastore_search?resource_id=${RESOURCE_ID}&limit=1&offset=0`, {
+                    headers: { 'api-key': API_KEY }
+                });
                 let firstJson = await firstRes.json();
                 if (firstJson.success && firstJson.result.total) {
                     totalRecords = firstJson.result.total;
                 }
 
                 while (true) {
-                    let res = await fetch(`https://opend.data.go.th/get-ckan/datastore_search?resource_id=${RESOURCE_ID}&limit=${limit}&offset=${offset}`);
+                    let res = await fetch(`https://opend.data.go.th/get-ckan/datastore_search?resource_id=${RESOURCE_ID}&limit=${limit}&offset=${offset}`, {
+                        headers: { 'api-key': API_KEY }
+                    });
                     let json = await res.json();
 
                     if (!json.success || !json.result.records || json.result.records.length === 0) {
@@ -348,7 +347,7 @@
                     updateProvinceDropdown();
 
                     let percent = Math.min(Math.round((globalData.length / totalRecords) * 100), 100);
-                    document.getElementById('stream-title').innerText = `กำลังดึงข้อมูลแบบเรียลไทม์ (${globalData.length.toLocaleString()} รายการ)`;
+                    document.getElementById('stream-title').innerText = `กำลังดึงข้อมูลผ่าน API (${globalData.length.toLocaleString()} รายการ)`;
                     document.getElementById('stream-progress-bar').style.width = percent + '%';
 
                     if (batch.length < limit || globalData.length >= totalRecords) {
@@ -360,14 +359,14 @@
 
                 document.getElementById('stream-banner').classList.remove('bg-slate-800', 'border-red-900/60');
                 document.getElementById('stream-banner').classList.add('bg-emerald-950/60', 'border-emerald-600/50');
-                document.getElementById('stream-title').innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400 mr-1"></i> โหลดข้อมูลทั้งหมด ${globalData.length.toLocaleString()} รายการสำเร็จ`;
-                document.getElementById('stream-desc').innerText = 'ระบบเฝ้าระวังพร้อมใช้งาน';
+                document.getElementById('stream-title').innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400 mr-1"></i> โหลดข้อมูลสำเร็จทั้งหมด ${globalData.length.toLocaleString()} รายการ`;
+                document.getElementById('stream-desc').innerText = 'ระบบเชื่อมต่อ API สำเร็จพร้อมใช้งาน';
                 document.getElementById('stream-progress-bar').parentElement.classList.add('hidden');
 
                 setTimeout(() => { if(map) map.invalidateSize(); }, 200);
 
             } catch (err) {
-                console.warn('API Stream error, loading mock data:', err);
+                console.warn('API Error, loading mock data:', err);
                 loadMockData();
             }
         }
@@ -442,7 +441,7 @@
             document.getElementById('province-select').value = "";
             document.getElementById('selected-province-badge').innerText = "แสดงทั้งหมด (ทั่วประเทศ)";
             document.getElementById('selected-province-badge').className = "px-2.5 py-1 bg-red-950 text-red-400 border border-red-800/50 rounded-lg text-xs font-semibold";
-            map.setView([13.7367, 100.5231], 6); // กลับมาซูมเต็มประเทศไทย
+            map.setView([13.7367, 100.5231], 6);
             currentPage = 1;
             applyFilters();
             setTimeout(() => { if(map) map.invalidateSize(); }, 100);
