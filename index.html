@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>COVID-19 Thailand Monitoring Dashboard - Timeline & Analytics</title>
+    <title>COVID-19 Thailand Real-time API Dashboard</title>
     <!-- Google Fonts: Sarabun -->
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Tailwind CSS -->
@@ -43,8 +43,8 @@
                     <i class="fa-solid fa-virus-covid animate-pulse"></i>
                 </div>
                 <div>
-                    <h1 class="text-2xl font-bold tracking-wide">COVID-19 Thailand Surveillance</h1>
-                    <p class="text-rose-200 text-sm" id="header-status">ระบบรายงานและวิเคราะห์ไทม์ไลน์ผู้ป่วยโควิด-19</p>
+                    <h1 class="text-2xl font-bold tracking-wide">COVID-19 Thailand Real-time API</h1>
+                    <p class="text-rose-200 text-sm" id="header-status">ระบบดึงข้อมูลจริงจาก Open Data API (Streaming 500 รายการ/รอบ)</p>
                 </div>
             </div>
             <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
@@ -55,7 +55,7 @@
                     <i class="fa-solid fa-file-csv"></i> ส่งออก CSV
                 </button>
                 <label class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-md cursor-pointer">
-                    <i class="fa-solid fa-file-import"></i> นำเข้าไฟล์เพิ่ม
+                    <i class="fa-solid fa-file-import"></i> นำเข้าไฟล์สำรอง
                     <input type="file" id="import-file" accept=".csv, .xlsx, .xls" class="hidden" onchange="handleFileImport(event)">
                 </label>
             </div>
@@ -65,16 +65,19 @@
     <!-- Main Container -->
     <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full space-y-6">
 
-        <!-- Status Banner -->
-        <div id="stream-banner" class="bg-emerald-950/60 border border-emerald-600/50 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg">
+        <!-- Status & Progress Banner -->
+        <div id="stream-banner" class="bg-slate-800 border border-red-900/60 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-emerald-600 text-white rounded-full flex items-center justify-center text-lg shadow-md">
-                    <i class="fa-solid fa-circle-check"></i>
+                <div class="w-10 h-10 bg-red-600 text-white rounded-full flex items-center justify-center text-lg shadow-md animate-spin" id="banner-icon">
+                    <i class="fa-solid fa-sync"></i>
                 </div>
                 <div>
-                    <h4 class="font-bold text-emerald-200 text-sm md:text-base" id="stream-title">พร้อมใช้งานเต็มรูปแบบ (ระบบวิเคราะห์ไทม์ไลน์และวันที่สูงสุด)</h4>
-                    <p class="text-slate-300 text-xs md:text-sm" id="stream-desc">แสดงช่วงเวลาของข้อมูล วันที่ยอดผู้ป่วยพุ่งสูงสุด พร้อมกราฟแนวโน้มและแผนที่</p>
+                    <h4 class="font-bold text-red-200 text-sm md:text-base" id="stream-title">กำลังเชื่อมต่อ Open Data API จริง...</h4>
+                    <p class="text-slate-400 text-xs md:text-sm" id="stream-desc">ระบบกำลังดึงข้อมูลทีละ 500 รายการพร้อมหน่วงเวลาปลอดภัย (Rate Limit Protection)</p>
                 </div>
+            </div>
+            <div class="w-full md:w-64 bg-slate-700 rounded-full h-3 overflow-hidden border border-slate-600" id="progress-container">
+                <div id="stream-progress-bar" class="bg-red-500 h-3 transition-all duration-200" style="width: 0%"></div>
             </div>
         </div>
 
@@ -138,7 +141,7 @@
                 </div>
             </div>
 
-            <!-- Timeline Chart Section (กราฟแสดงแนวโน้มผู้ป่วยตามช่วงเวลา) -->
+            <!-- Timeline Chart Section -->
             <div class="bg-slate-800 p-6 rounded-xl shadow-md border border-slate-700">
                 <h2 class="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
                     <i class="fa-solid fa-chart-area text-red-500"></i> กราฟแนวโน้มผู้ป่วยตามช่วงเวลา (Timeline Analysis)
@@ -148,7 +151,7 @@
                 </div>
             </div>
 
-            <!-- Charts Section 1: Age & Gender -->
+            <!-- Charts Section 1 -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="bg-slate-800 p-6 rounded-xl shadow-md border border-slate-700">
                     <h2 class="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
@@ -234,6 +237,9 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
+        const RESOURCE_ID = '1c2f6045-c600-410a-995c-a37a88594ab4';
+        const API_KEY = 'J3Pzg5kkAUlSlioccm88R55WWEoHQBMo';
+
         let globalData = [];
         let filteredData = [];
         let selectedProvince = "";
@@ -305,47 +311,98 @@
             }
         }
 
-        // โหลดข้อมูลเริ่มต้นอัตโนมัติพร้อมวันที่สมจริงสำหรับการวิเคราะห์ไทม์ไลน์
-        function loadInitialData() {
+        // ฟังก์ชันหน่วงเวลา 5 วินาที ระหว่างรอบการดึง API ป้องกัน Rate Limit
+        function wait5Seconds() {
+            return new Promise(resolve => {
+                let secondsLeft = 5;
+                let timerInterval = setInterval(() => {
+                    document.getElementById('stream-desc').innerText = `ระบบหน่วงเวลาปลอดภัย ดึงชุดถัดไปในอีก ${secondsLeft} วินาที...`;
+                    secondsLeft--;
+                    if (secondsLeft < 0) {
+                        clearInterval(timerInterval);
+                        resolve();
+                    }
+                }, 1000);
+            });
+        }
+
+        // ดึงข้อมูลจริงจาก Open Data API ผ่าน Proxy ทีละ 500 รายการต่อเนื่อง
+        async function fetchRealAPIStream() {
             initMap();
-            let mock = [];
-            const provs = Object.keys(provinceCoords);
-            const risks = ["สัมผัสใกล้ชิดผู้ป่วยยืนยัน", "ไปสถานที่ชุมชน", "อาชีพเสี่ยง", "อื่นๆ"];
-            
-            // สร้างข้อมูลตัวอย่างกระจายตามวันในปี 2021
-            const baseDate = new Date(2021, 8, 1);
-            for(let i=1; i<=8000; i++) {
-                let d = new Date(baseDate);
-                d.setDate(d.getDate() + (i % 60)); // กระจายในช่วง 60 วัน
-                let dateStr = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${d.getFullYear()}`;
+            let limit = 500;
+            let offset = 0;
+            let totalRecords = 100000;
 
-                mock.push({
-                    No: 1859100 + i,
-                    announce_date: dateStr,
-                    sex: i % 2 === 0 ? "ชาย" : "หญิง",
-                    age: 15 + (i % 60),
-                    nationality: "Thailand",
-                    risk: risks[i % risks.length],
-                    province_of_onset: provs[i % provs.length],
-                    district_onset: "อำเภอเมือง"
-                });
+            try {
+                let targetUrl = `https://opend.data.go.th/get-ckan/datastore_search?resource_id=${RESOURCE_ID}&limit=1&offset=0&api-key=${API_KEY}`;
+                let proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+                let firstRes = await fetch(proxyUrl);
+                let firstJson = await firstRes.json();
+                
+                if (firstJson.success && firstJson.result.total) {
+                    totalRecords = firstJson.result.total;
+                }
+
+                while (true) {
+                    let pageUrl = `https://opend.data.go.th/get-ckan/datastore_search?resource_id=${RESOURCE_ID}&limit=${limit}&offset=${offset}&api-key=${API_KEY}`;
+                    let pageProxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(pageUrl)}`;
+
+                    let res = await fetch(pageProxyUrl);
+                    let json = await res.json();
+
+                    if (!json.success || !json.result.records || json.result.records.length === 0) {
+                        break;
+                    }
+
+                    let batch = json.result.records;
+                    let processedBatch = batch.map((item, index) => {
+                        let ageVal = item.age !== undefined ? item.age : item.Age;
+                        return {
+                            no: item.No || item.no || (offset + index + 1),
+                            announce_date: item.announce_date || item.Announce_date || '-',
+                            province_onset: item.province_of_onset || item.province || 'ไม่ระบุ',
+                            district_onset: item.district_of_onset || '-',
+                            sex: cleanGender(item.sex),
+                            age: ageVal || '-',
+                            age_group: getAgeGroup(ageVal),
+                            risk: item.risk || item.Risk || 'อื่นๆ/ไม่ระบุ',
+                            nationality: item.nationality || item.nation || 'Thailand'
+                        };
+                    });
+
+                    globalData = globalData.concat(processedBatch);
+                    applyFilters();
+                    updateProvinceDropdown();
+
+                    let percent = Math.min(Math.round((globalData.length / totalRecords) * 100), 100);
+                    document.getElementById('stream-title').innerText = `กำลังดึงข้อมูลจริง (${globalData.length.toLocaleString()} / ${totalRecords.toLocaleString()} รายการ)`;
+                    document.getElementById('stream-progress-bar').style.width = percent + '%';
+
+                    if (batch.length < limit || globalData.length >= totalRecords) {
+                        break;
+                    }
+
+                    offset += limit;
+                    await wait5Seconds(); // หน่วง 5 วินาทีก่อนดึงรอบถัดไป
+                }
+
+                document.getElementById('stream-banner').className = "bg-emerald-950/60 border border-emerald-600/50 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg";
+                document.getElementById('banner-icon').className = "w-10 h-10 bg-emerald-600 text-white rounded-full flex items-center justify-center text-lg shadow-md";
+                document.getElementById('banner-icon').innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+                document.getElementById('stream-title').innerText = `ดึงข้อมูลจริงสำเร็จทั้งหมด ${globalData.length.toLocaleString()} รายการ`;
+                document.getElementById('stream-desc').innerText = 'เชื่อมต่อ Open Data API สำเร็จสมบูรณ์แบบ';
+                document.getElementById('progress-container').classList.add('hidden');
+
+                setTimeout(() => { if(map) map.invalidateSize(); }, 200);
+
+            } catch (err) {
+                console.warn('Real API Stream Error:', err);
+                document.getElementById('stream-title').innerText = 'ไม่สามารถดึงข้อมูลสดจาก API ได้โดยตรง (CORS Block)';
+                document.getElementById('stream-desc').innerText = 'กรุณาใช้ปุ่ม "นำเข้าไฟล์สำรอง" ด้านบน เพื่ออัปโหลดไฟล์ข้อมูลจริงของคุณ';
+                document.getElementById('banner-icon').className = "w-10 h-10 bg-amber-600 text-white rounded-full flex items-center justify-center text-lg shadow-md";
+                document.getElementById('banner-icon').innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+                document.getElementById('progress-container').classList.add('hidden');
             }
-
-            globalData = mock.map((item) => ({
-                no: item.No,
-                announce_date: item.announce_date,
-                province_onset: item.province_of_onset,
-                district_onset: item.district_onset,
-                sex: cleanGender(item.sex),
-                age: item.age,
-                age_group: getAgeGroup(item.age),
-                risk: item.risk,
-                nationality: item.nationality
-            }));
-
-            applyFilters();
-            updateProvinceDropdown();
-            setTimeout(() => { if(map) map.invalidateSize(); }, 200);
         }
 
         function updateProvinceDropdown() {
@@ -449,10 +506,8 @@
             document.getElementById('kpi-top-risk').innerText = topRisk;
             document.getElementById('kpi-top-risk').title = topRisk;
 
-            // วิเคราะห์ช่วงวันที่ และวันที่สูงสุด
             let dates = Object.keys(dateCount);
             if (dates.length > 0) {
-                // หา Peak Date (วันที่ยอดสูงสุด)
                 let peakDate = dates.reduce((a, b) => dateCount[a] > dateCount[b] ? a : b);
                 document.getElementById('kpi-peak-date').innerText = `${peakDate} (${dateCount[peakDate].toLocaleString()} ราย)`;
                 document.getElementById('kpi-date-range').innerText = `${dates[0]} ถึง ${dates[dates.length - 1]}`;
@@ -489,12 +544,11 @@
             let riskLabels = sortedRisks.map(item => item[0]);
             let riskData = sortedRisks.map(item => item[1]);
 
-            // เตรียมข้อมูล Timeline Chart
             let sortedDates = Object.keys(dateMap).sort();
             let timelineLabels = sortedDates;
             let timelineData = sortedDates.map(d => dateMap[d]);
 
-            // 1. Timeline Chart (กราฟแสดงแนวโน้มตามช่วงเวลา)
+            // 1. Timeline Chart
             const timelineCtx = document.getElementById('timelineChart').getContext('2d');
             if (timelineChartInstance) {
                 timelineChartInstance.data.labels = timelineLabels;
@@ -648,7 +702,7 @@
             const items = filteredData.slice(start, end);
 
             if (items.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-slate-500">ไม่พบข้อมูลตามเงื่อนไข</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-slate-500">กำลังเชื่อมต่อดึงข้อมูลจริงจาก API...</td></tr>`;
                 return;
             }
 
@@ -687,7 +741,6 @@
             }
         }
 
-        // นำเข้าไฟล์ข้อมูลจริงแบบแบ่งบล็อกทีละ 500 รายการ ป้องกันหน้าค้าง
         function handleFileImport(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -701,7 +754,25 @@
                     const json = XLSX.utils.sheet_to_json(sheet);
 
                     if (json && json.length > 0) {
-                        processInChunks(json);
+                        let imported = json.map((item, index) => {
+                            let ageVal = item.age !== undefined ? item.age : item.Age;
+                            return {
+                                no: item.No || item.no || (globalData.length + index + 1),
+                                announce_date: item.announce_date || item.Announce_date || '-',
+                                province_onset: item.province_of_onset || item.province || 'ไม่ระบุ',
+                                district_onset: item.district_of_onset || '-',
+                                sex: cleanGender(item.sex),
+                                age: ageVal || '-',
+                                age_group: getAgeGroup(ageVal),
+                                risk: item.risk || item.Risk || 'อื่นๆ/ไม่ระบุ',
+                                nationality: item.nationality || item.nation || 'Thailand'
+                            };
+                        });
+                        globalData = globalData.concat(imported);
+                        applyFilters();
+                        updateProvinceDropdown();
+                        alert(`นำเข้าไฟล์ข้อมูลเพิ่มสำเร็จ ${imported.length.toLocaleString()} รายการ`);
+                        setTimeout(() => { if(map) map.invalidateSize(); }, 100);
                     } else {
                         alert('ไม่พบข้อมูลภายในไฟล์');
                     }
@@ -711,51 +782,6 @@
                 }
             };
             reader.readAsArrayBuffer(file);
-        }
-
-        function processInChunks(rawArray) {
-            let chunkSize = 500;
-            let index = 0;
-            let total = rawArray.length;
-            let processedList = [];
-
-            function step() {
-                let nextIndex = Math.min(index + chunkSize, total);
-                for (let i = index; i < nextIndex; i++) {
-                    let item = rawArray[i];
-                    let no = item.No || item.no || item['No.'] || (i + 1);
-                    let announce_date = item.announce_date || item.Announce_date || item['Announce date'] || '-';
-                    let province_onset = item.province_of_onset || item.province || item['province_of_onset'] || 'ไม่ระบุ';
-                    let district_onset = item.district_of_onset || item['district_of_onset'] || '-';
-                    let sex = cleanGender(item.sex || item.Sex);
-                    let age = item.age !== undefined ? item.age : (item.Age !== undefined ? item.Age : '-');
-                    let risk = item.risk || item.Risk || 'อื่นๆ/ไม่ระบุ';
-                    let nationality = item.nationality || item.nation || item.Nationality || 'Thailand';
-
-                    processedList.push({
-                        no: no,
-                        announce_date: announce_date,
-                        province_onset: province_onset,
-                        district_onset: district_onset,
-                        sex: sex,
-                        age: age,
-                        age_group: getAgeGroup(age),
-                        risk: risk,
-                        nationality: nationality
-                    });
-                }
-                index = nextIndex;
-                if (index < total) {
-                    setTimeout(step, 10);
-                } else {
-                    globalData = processedList;
-                    applyFilters();
-                    updateProvinceDropdown();
-                    alert(`นำเข้าไฟล์ข้อมูลสำเร็จทั้งหมด ${globalData.length.toLocaleString()} รายการ`);
-                    setTimeout(() => { if(map) map.invalidateSize(); }, 100);
-                }
-            }
-            step();
         }
 
         function exportToExcel() {
@@ -779,7 +805,7 @@
             document.body.removeChild(link);
         }
 
-        window.onload = loadInitialData;
+        window.onload = fetchRealAPIStream;
     </script>
 </body>
 </html>
