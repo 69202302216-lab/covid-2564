@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>COVID-19 Thailand Real-time API Dashboard</title>
+    <title>COVID-19 Thailand Incremental API Stream</title>
     <!-- Google Fonts: Sarabun -->
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Tailwind CSS -->
@@ -43,8 +43,8 @@
                     <i class="fa-solid fa-virus-covid animate-pulse"></i>
                 </div>
                 <div>
-                    <h1 class="text-2xl font-bold tracking-wide">COVID-19 Thailand Real-time API</h1>
-                    <p class="text-rose-200 text-sm" id="header-status">ระบบดึงข้อมูลจริงจาก Open Data API (Streaming 500 รายการ/รอบ)</p>
+                    <h1 class="text-2xl font-bold tracking-wide">COVID-19 Thailand Real-time Stream</h1>
+                    <p class="text-rose-200 text-sm" id="header-status">ดึงข้อมูลจริงทีละ 100 รายการ และอัปเดตหน้าจอทันที</p>
                 </div>
             </div>
             <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
@@ -55,7 +55,7 @@
                     <i class="fa-solid fa-file-csv"></i> ส่งออก CSV
                 </button>
                 <label class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-md cursor-pointer">
-                    <i class="fa-solid fa-file-import"></i> นำเข้าไฟล์สำรอง
+                    <i class="fa-solid fa-file-import"></i> นำเข้าไฟล์เพิ่ม
                     <input type="file" id="import-file" accept=".csv, .xlsx, .xls" class="hidden" onchange="handleFileImport(event)">
                 </label>
             </div>
@@ -72,8 +72,8 @@
                     <i class="fa-solid fa-sync"></i>
                 </div>
                 <div>
-                    <h4 class="font-bold text-red-200 text-sm md:text-base" id="stream-title">กำลังเชื่อมต่อ Open Data API จริง...</h4>
-                    <p class="text-slate-400 text-xs md:text-sm" id="stream-desc">ระบบกำลังดึงข้อมูลทีละ 500 รายการพร้อมหน่วงเวลาปลอดภัย (Rate Limit Protection)</p>
+                    <h4 class="font-bold text-red-200 text-sm md:text-base" id="stream-title">กำลังเริ่มดึงข้อมูลจาก Open Data API...</h4>
+                    <p class="text-slate-400 text-xs md:text-sm" id="stream-desc">ดึงทีละ 100 รายการ และแสดงผลอัปเดตทันทีแบบเรียลไทม์</p>
                 </div>
             </div>
             <div class="w-full md:w-64 bg-slate-700 rounded-full h-3 overflow-hidden border border-slate-600" id="progress-container">
@@ -311,29 +311,20 @@
             }
         }
 
-        // ฟังก์ชันหน่วงเวลา 5 วินาที ระหว่างรอบการดึง API ป้องกัน Rate Limit
-        function wait5Seconds() {
-            return new Promise(resolve => {
-                let secondsLeft = 5;
-                let timerInterval = setInterval(() => {
-                    document.getElementById('stream-desc').innerText = `ระบบหน่วงเวลาปลอดภัย ดึงชุดถัดไปในอีก ${secondsLeft} วินาที...`;
-                    secondsLeft--;
-                    if (secondsLeft < 0) {
-                        clearInterval(timerInterval);
-                        resolve();
-                    }
-                }, 1000);
-            });
+        // ฟังก์ชันหน่วงเวลา 2 วินาทีระหว่างรอบ เพื่อไม่ให้ยิง API ถี่เกินไป
+        function wait2Seconds() {
+            return new Promise(resolve => setTimeout(resolve, 2000));
         }
 
-        // ดึงข้อมูลจริงจาก Open Data API ผ่าน Proxy ทีละ 500 รายการต่อเนื่อง
-        async function fetchRealAPIStream() {
+        // **ฟังก์ชันหลัก: ดึงข้อมูลจริงจาก API ทีละ 100 รายการ และอัปเดตหน้าจอทันทีทุกรอบ**
+        async function fetchIncrementalStream() {
             initMap();
-            let limit = 500;
+            let limit = 100; // ส่งทีละ 100 ตามที่คุณต้องการ
             let offset = 0;
-            let totalRecords = 100000;
+            let totalRecords = 50000;
 
             try {
+                // เช็คจำนวนทั้งหมดก่อน
                 let targetUrl = `https://opend.data.go.th/get-ckan/datastore_search?resource_id=${RESOURCE_ID}&limit=1&offset=0&api-key=${API_KEY}`;
                 let proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
                 let firstRes = await fetch(proxyUrl);
@@ -370,6 +361,7 @@
                         };
                     });
 
+                    // **รวมข้อมูลและอัปเดตหน้าจอทันทีทุกๆ 100 รายการ**
                     globalData = globalData.concat(processedBatch);
                     applyFilters();
                     updateProvinceDropdown();
@@ -377,28 +369,30 @@
                     let percent = Math.min(Math.round((globalData.length / totalRecords) * 100), 100);
                     document.getElementById('stream-title').innerText = `กำลังดึงข้อมูลจริง (${globalData.length.toLocaleString()} / ${totalRecords.toLocaleString()} รายการ)`;
                     document.getElementById('stream-progress-bar').style.width = percent + '%';
+                    document.getElementById('stream-desc').innerText = `ดึงมาแล้ว ${globalData.length.toLocaleString()} รายการ (อัปเดตกราฟและแผนที่แบบเรียลไทม์)`;
 
                     if (batch.length < limit || globalData.length >= totalRecords) {
                         break;
                     }
 
                     offset += limit;
-                    await wait5Seconds(); // หน่วง 5 วินาทีก่อนดึงรอบถัดไป
+                    await wait2Seconds(); // หน่วง 2 วินาทีก่อนดึง 100 รายการถัดไป
                 }
 
+                // โหลดครบถ้วน
                 document.getElementById('stream-banner').className = "bg-emerald-950/60 border border-emerald-600/50 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg";
                 document.getElementById('banner-icon').className = "w-10 h-10 bg-emerald-600 text-white rounded-full flex items-center justify-center text-lg shadow-md";
                 document.getElementById('banner-icon').innerHTML = '<i class="fa-solid fa-circle-check"></i>';
                 document.getElementById('stream-title').innerText = `ดึงข้อมูลจริงสำเร็จทั้งหมด ${globalData.length.toLocaleString()} รายการ`;
-                document.getElementById('stream-desc').innerText = 'เชื่อมต่อ Open Data API สำเร็จสมบูรณ์แบบ';
+                document.getElementById('stream-desc').innerText = 'เชื่อมต่อ Open Data API ครบถ้วนทุกเรกคอร์ด';
                 document.getElementById('progress-container').classList.add('hidden');
 
                 setTimeout(() => { if(map) map.invalidateSize(); }, 200);
 
             } catch (err) {
-                console.warn('Real API Stream Error:', err);
-                document.getElementById('stream-title').innerText = 'ไม่สามารถดึงข้อมูลสดจาก API ได้โดยตรง (CORS Block)';
-                document.getElementById('stream-desc').innerText = 'กรุณาใช้ปุ่ม "นำเข้าไฟล์สำรอง" ด้านบน เพื่ออัปโหลดไฟล์ข้อมูลจริงของคุณ';
+                console.warn('API Stream Error:', err);
+                document.getElementById('stream-title').innerText = 'ไม่สามารถดึงข้อมูลสดจาก API ได้ (CORS/Network Error)';
+                document.getElementById('stream-desc').innerText = 'คุณสามารถใช้ปุ่ม "นำเข้าไฟล์เพิ่ม" ด้านบนเพื่ออัปโหลดไฟล์ Excel ของคุณได้ทันที';
                 document.getElementById('banner-icon').className = "w-10 h-10 bg-amber-600 text-white rounded-full flex items-center justify-center text-lg shadow-md";
                 document.getElementById('banner-icon').innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
                 document.getElementById('progress-container').classList.add('hidden');
@@ -702,7 +696,7 @@
             const items = filteredData.slice(start, end);
 
             if (items.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-slate-500">กำลังเชื่อมต่อดึงข้อมูลจริงจาก API...</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-slate-500">กำลังดึงข้อมูลชุดแรกจาก API...</td></tr>`;
                 return;
             }
 
@@ -805,7 +799,7 @@
             document.body.removeChild(link);
         }
 
-        window.onload = fetchRealAPIStream;
+        window.onload = fetchIncrementalStream;
     </script>
 </body>
 </html>
