@@ -44,7 +44,7 @@
                 </div>
                 <div>
                     <h1 class="text-2xl font-bold tracking-wide">COVID-19 Thailand Surveillance</h1>
-                    <p class="text-rose-200 text-sm" id="header-status">ระบบเฝ้าระวังและวิเคราะห์ข้อมูลผู้ป่วย (Authenticated API)</p>
+                    <p class="text-rose-200 text-sm" id="header-status">ระบบเฝ้าระวังและวิเคราะห์ข้อมูลผู้ป่วย (Secure API & CORS Bypass)</p>
                 </div>
             </div>
             <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
@@ -72,7 +72,7 @@
                     <i class="fa-solid fa-sync fa-spin"></i>
                 </div>
                 <div>
-                    <h4 class="font-bold text-red-200 text-sm md:text-base" id="stream-title">กำลังดึงข้อมูลผ่าน API ด้วย Key ส่วนตัว...</h4>
+                    <h4 class="font-bold text-red-200 text-sm md:text-base" id="stream-title">กำลังดึงข้อมูลผ่าน API พร้อมระบบแก้ CORS...</h4>
                     <p class="text-slate-400 text-xs md:text-sm" id="stream-desc">ระบบกำลังโหลดและอัปเดตกราฟ/แผนที่แบบเรียลไทม์</p>
                 </div>
             </div>
@@ -308,18 +308,22 @@
             initMap();
 
             try {
-                let firstRes = await fetch(`https://opend.data.go.th/get-ckan/datastore_search?resource_id=${RESOURCE_ID}&limit=1&offset=0`, {
-                    headers: { 'api-key': API_KEY }
-                });
+                // ใช้ Proxy (allorigins) ครอบ URL เพื่อแก้ปัญหา CORS และส่ง api-key ทั้งใน Query และ Header
+                let targetUrl = `https://opend.data.go.th/get-ckan/datastore_search?resource_id=${RESOURCE_ID}&limit=1&offset=0&api-key=${API_KEY}`;
+                let proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+
+                let firstRes = await fetch(proxyUrl);
                 let firstJson = await firstRes.json();
+                
                 if (firstJson.success && firstJson.result.total) {
                     totalRecords = firstJson.result.total;
                 }
 
                 while (true) {
-                    let res = await fetch(`https://opend.data.go.th/get-ckan/datastore_search?resource_id=${RESOURCE_ID}&limit=${limit}&offset=${offset}`, {
-                        headers: { 'api-key': API_KEY }
-                    });
+                    let pageUrl = `https://opend.data.go.th/get-ckan/datastore_search?resource_id=${RESOURCE_ID}&limit=${limit}&offset=${offset}&api-key=${API_KEY}`;
+                    let pageProxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(pageUrl)}`;
+
+                    let res = await fetch(pageProxyUrl);
                     let json = await res.json();
 
                     if (!json.success || !json.result.records || json.result.records.length === 0) {
@@ -354,44 +358,45 @@
                         break;
                     }
 
+                    offset += limit;
                     await new Promise(r => setTimeout(r, 30));
                 }
 
                 document.getElementById('stream-banner').classList.remove('bg-slate-800', 'border-red-900/60');
                 document.getElementById('stream-banner').classList.add('bg-emerald-950/60', 'border-emerald-600/50');
                 document.getElementById('stream-title').innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400 mr-1"></i> โหลดข้อมูลสำเร็จทั้งหมด ${globalData.length.toLocaleString()} รายการ`;
-                document.getElementById('stream-desc').innerText = 'ระบบเชื่อมต่อ API สำเร็จพร้อมใช้งาน';
+                document.getElementById('stream-desc').innerText = 'ระบบเชื่อมต่อ API และผ่านระบบ CORS สำเร็จพร้อมใช้งาน';
                 document.getElementById('stream-progress-bar').parentElement.classList.add('hidden');
 
                 setTimeout(() => { if(map) map.invalidateSize(); }, 200);
 
             } catch (err) {
-                console.warn('API Error, loading mock data:', err);
+                console.warn('API Error or CORS restricted, loading sample data:', err);
                 loadMockData();
             }
         }
 
         function loadMockData() {
             let mock = [];
-            const provs = ["กรุงเทพมหานคร", "เชียงใหม่", "ลำปาง", "ชลบุรี", "ภูเก็ต", "สงขลา"];
-            const risks = ["สัมผัสใกล้ชิดผู้ป่วยยืนยันก่อนหน้า", "ไปสถานที่ชุมชน เช่น ตลาดนัด สถานที่ท่องเที่ยว", "อาชีพเสี่ยง เช่น ทำงานในสถานที่แออัด", "อื่นๆ"];
-            for(let i=1; i<=2000; i++) {
+            const provs = ["กรุงเทพมหานคร", "เชียงใหม่", "ลำปาง", "ชลบุรี", "ภูเก็ต", "สงขลา", "ขอนแก่น", "นครราชสีมา"];
+            const risks = ["สัมผัสใกล้ชิดผู้ป่วยยืนยันก่อนหน้า", "ไปสถานที่ชุมชน เช่น ตลาดนัด สถานที่ท่องเที่ยว", "อาชีพเสี่ยง เช่น ทำงานในสถานที่แออัด", "อื่นๆ", "บุคลากรทางการแพทย์"];
+            for(let i=1; i<=3000; i++) {
                 mock.push({
-                    No: 1800000 + i,
+                    No: 1850000 + i,
                     announce_date: "26/10/2021",
                     sex: i % 2 === 0 ? "ชาย" : "หญิง",
-                    age: 20 + (i % 50),
+                    age: 15 + (i % 60),
                     nationality: "Thailand",
                     risk: risks[i % risks.length],
                     province_of_onset: provs[i % provs.length],
                     district_onset: "เมือง"
                 });
             }
-            globalData = mock.map((item, i) => ({
+            globalData = mock.map((item) => ({
                 no: item.No,
                 announce_date: item.announce_date,
                 province_onset: item.province_of_onset,
-                district_onset: item.district_of_onset,
+                district_onset: item.district_onset,
                 sex: cleanGender(item.sex),
                 age: item.age,
                 age_group: getAgeGroup(item.age),
@@ -400,7 +405,11 @@
             }));
             applyFilters();
             updateProvinceDropdown();
-            document.getElementById('stream-banner').classList.add('hidden');
+            document.getElementById('stream-banner').classList.remove('bg-slate-800');
+            document.getElementById('stream-banner').classList.add('bg-cyan-950/80', 'border-cyan-700');
+            document.getElementById('stream-title').innerHTML = `<i class="fa-solid fa-database text-cyan-400 mr-1"></i> โหลดข้อมูลตัวอย่างระบบสำเร็จ (${globalData.length.toLocaleString()} รายการ)`;
+            document.getElementById('stream-desc').innerText = 'ระบบจำลองข้อมูลพร้อมใช้งานเต็มรูปแบบ (เนื่องจากนโยบายความปลอดภัย CORS ของเบราว์เซอร์)';
+            document.getElementById('stream-progress-bar').parentElement.classList.add('hidden');
             setTimeout(() => { if(map) map.invalidateSize(); }, 200);
         }
 
