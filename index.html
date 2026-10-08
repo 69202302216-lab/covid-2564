@@ -44,7 +44,7 @@
                 </div>
                 <div>
                     <h1 class="text-2xl font-bold tracking-wide">COVID-19 Thailand Surveillance</h1>
-                    <p class="text-rose-200 text-sm" id="header-status">ระบบเฝ้าระวังและวิเคราะห์ข้อมูลผู้ป่วย (High-Performance Engine)</p>
+                    <p class="text-rose-200 text-sm" id="header-status">ระบบรายงานและวิเคราะห์ข้อมูลผู้ป่วยโควิด-19</p>
                 </div>
             </div>
             <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
@@ -55,7 +55,7 @@
                     <i class="fa-solid fa-file-csv"></i> ส่งออก CSV
                 </button>
                 <label class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-md cursor-pointer">
-                    <i class="fa-solid fa-file-import"></i> นำเข้าไฟล์ข้อมูล
+                    <i class="fa-solid fa-file-import"></i> นำเข้าไฟล์ Excel/CSV
                     <input type="file" id="import-file" accept=".csv, .xlsx, .xls" class="hidden" onchange="handleFileImport(event)">
                 </label>
             </div>
@@ -65,16 +65,19 @@
     <!-- Main Container -->
     <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full space-y-6">
 
-        <!-- Status Banner -->
-        <div id="stream-banner" class="bg-emerald-950/60 border border-emerald-600/50 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg">
+        <!-- Status & Progress Banner -->
+        <div id="stream-banner" class="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-emerald-600 text-white rounded-full flex items-center justify-center text-lg shadow-md">
-                    <i class="fa-solid fa-circle-check"></i>
+                <div class="w-10 h-10 bg-red-600 text-white rounded-full flex items-center justify-center text-lg shadow-md" id="banner-icon">
+                    <i class="fa-solid fa-file-arrow-up"></i>
                 </div>
                 <div>
-                    <h4 class="font-bold text-emerald-200 text-sm md:text-base" id="stream-title">โหลดข้อมูลสำเร็จพร้อมใช้งานทันที</h4>
-                    <p class="text-slate-300 text-xs md:text-sm" id="stream-desc">ระบบพร้อมแสดงผลกราฟ แผนที่ความหนาแน่น และรายงานความเสี่ยง (สามารถกดนำเข้าไฟล์ Excel ของคุณเองได้ที่ปุ่มขวาบน)</p>
+                    <h4 class="font-bold text-slate-200 text-sm md:text-base" id="stream-title">ยังไม่ได้นำเข้าข้อมูล</h4>
+                    <p class="text-slate-400 text-xs md:text-sm" id="stream-desc">กรุณากลุ่มปุ่ม "นำเข้าไฟล์ Excel/CSV" ด้านบนเพื่อเริ่มอัปโหลดชุดข้อมูลของคุณ</p>
                 </div>
+            </div>
+            <div class="w-full md:w-64 bg-slate-700 rounded-full h-3 overflow-hidden border border-slate-600 hidden" id="progress-container">
+                <div id="stream-progress-bar" class="bg-red-500 h-3 transition-all duration-200" style="width: 0%"></div>
             </div>
         </div>
 
@@ -90,7 +93,7 @@
                 </div>
                 <div class="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
                     <select id="province-select" onchange="onProvinceSelectChange(this.value)" class="bg-slate-900 border border-slate-700 text-slate-100 px-4 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 w-full md:w-64">
-                        <option value="">-- ทุกจังหวัด (ภาพรวมประเทศ) --</option>
+                        <option value="">-- ทุกจังหวัด --</option>
                     </select>
                     <button onclick="resetProvinceFilter()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-2 rounded-lg text-sm transition whitespace-nowrap">
                         <i class="fa-solid fa-rotate-left mr-1"></i> ล้างตัวกรอง
@@ -260,7 +263,7 @@
             "พังงา": [8.4450, 98.5251], "ภูเก็ต": [7.8804, 98.3923], "สุราษฎร์ธานี": [9.1382, 99.3217],
             "ระนอง": [9.9658, 98.6385], "ชุมพร": [10.4930, 99.1800], "สงขลา": [7.1756, 100.6146], "สตูล": [6.6136, 100.0673],
             "ตรัง": [7.5563, 99.6112], "พัทลุง": [7.6167, 100.0744], "ปัตตานี": [6.8687, 101.2504], "ยะลา": [6.5411, 101.2804],
-            "นราธิวาส": [6.4255, 101.8253]
+            "นราธิวาส": [6.4255, 101.8253], "ลำปาง": [18.2888, 99.5003]
         };
 
         function getAgeGroup(age) {
@@ -294,49 +297,114 @@
             }
         }
 
-        // โหลดข้อมูลชุดใหญ่จำลองความเสถียร (หรือรองรับไฟล์นำเข้า)
-        function loadInitialData() {
+        window.onload = function() {
             initMap();
-            let mock = [];
-            const provs = Object.keys(provinceCoords);
-            const risks = [
-                "สัมผัสใกล้ชิดผู้ป่วยยืนยันก่อนหน้า", 
-                "ไปสถานที่ชุมชน เช่น ตลาดนัด สถานที่ท่องเที่ยว", 
-                "อาชีพเสี่ยง เช่น ทำงานในสถานที่แออัด", 
-                "อื่นๆ", 
-                "การ 3", 
-                "ตรวจพบขณะ 3"
-            ];
-            
-            // สร้างข้อมูลจำลอง 5,000 รายการเพื่อให้เห็นกราฟและแผนที่หนาแน่นสมจริง
-            for(let i=1; i<=5000; i++) {
-                mock.push({
-                    No: 1859100 + i,
-                    announce_date: "26/10/2021",
-                    sex: i % 2 === 0 ? "ชาย" : "หญิง",
-                    age: 15 + (i % 60),
-                    nationality: "Thailand",
-                    risk: risks[i % risks.length],
-                    province_of_onset: provs[i % provs.length],
-                    district_onset: "อำเภอเมือง"
-                });
+        };
+
+        // ระบบนำเข้าไฟล์แบบทยอยประมวลผลทีละ 500 รายการ (Chunking) ป้องกันหน้าจอค้าง
+        function handleFileImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            document.getElementById('progress-container').classList.remove('hidden');
+            document.getElementById('stream-title').innerText = 'กำลังอ่านไฟล์ Excel/CSV...';
+            document.getElementById('stream-desc').innerText = 'กรุณารอสักครู่ ระบบกำลังโหลดข้อมูลเข้าสู่ระบบ';
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet);
+
+                    if (!json || json.length === 0) {
+                        alert('ไม่พบข้อมูลภายในไฟล์ หรือรูปแบบตารางไม่ถูกต้อง');
+                        resetBanner();
+                        return;
+                    }
+
+                    // เริ่มต้นกระบวนการ Chunking ทีละ 500 รายการ
+                    processInChunks(json);
+
+                } catch (err) {
+                    console.error(err);
+                    alert('เกิดข้อผิดพลาดในการอ่านไฟล์ กรุณาตรวจสอบรูปแบบไฟล์');
+                    resetBanner();
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processInChunks(rawArray) {
+            let chunkSize = 500;
+            let index = 0;
+            let total = rawArray.length;
+            let processedList = [];
+
+            function step() {
+                let nextIndex = Math.min(index + chunkSize, total);
+                
+                for (let i = index; i < nextIndex; i++) {
+                    let item = rawArray[i];
+                    // รองรับชื่อคอลัมน์หลากหลายรูปแบบตามตัวอย่างจริงของคุณ
+                    let no = item.No || item.no || item['No.'] || (i + 1);
+                    let announce_date = item.announce_date || item.Announce_date || item['Announce date'] || '-';
+                    let province_onset = item.province_of_onset || item.province || item['province_of_onset'] || 'ไม่ระบุ';
+                    let district_onset = item.district_of_onset || item['district_of_onset'] || '-';
+                    let sex = cleanGender(item.sex || item.Sex);
+                    let age = item.age !== undefined ? item.age : (item.Age !== undefined ? item.Age : '-');
+                    let risk = item.risk || item.Risk || 'อื่นๆ/ไม่ระบุ';
+                    let nationality = item.nationality || item.nation || item.Nationality || 'Thailand';
+
+                    processedList.push({
+                        no: no,
+                        announce_date: announce_date,
+                        province_onset: province_onset,
+                        district_onset: district_onset,
+                        sex: sex,
+                        age: age,
+                        age_group: getAgeGroup(age),
+                        risk: risk,
+                        nationality: nationality
+                    });
+                }
+
+                index = nextIndex;
+                let percent = Math.round((index / total) * 100);
+                
+                document.getElementById('stream-title').innerText = `กำลังประมวลผลข้อมูล (${index.toLocaleString()} / ${total.toLocaleString()} รายการ)`;
+                document.getElementById('stream-progress-bar').style.width = percent + '%';
+                document.getElementById('stream-desc').innerText = `ทยอยโหลดทีละ 500 รายการ เพื่อความเสถียรและความลื่นไหล (${percent}%)`;
+
+                if (index < total) {
+                    setTimeout(step, 10); // หน่วงเล็กน้อยเพื่อให้เบราว์เซอร์เรนเดอร์ทัน
+                } else {
+                    // โหลดครบทั้งหมด นำเข้าสู่ Global Data
+                    globalData = processedList;
+                    applyFilters();
+                    updateProvinceDropdown();
+
+                    // อัปเดตแบนเนอร์สำเร็จ
+                    document.getElementById('stream-banner').className = "bg-emerald-950/60 border border-emerald-600/50 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg";
+                    document.getElementById('banner-icon').className = "w-10 h-10 bg-emerald-600 text-white rounded-full flex items-center justify-center text-lg shadow-md";
+                    document.getElementById('banner-icon').innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+                    document.getElementById('stream-title').innerText = `นำเข้าข้อมูลสำเร็จทั้งหมด ${globalData.length.toLocaleString()} รายการ`;
+                    document.getElementById('stream-desc').innerText = 'ระบบพร้อมแสดงผลกราฟ แผนที่ และรายงานความเสี่ยงเรียบร้อยแล้ว';
+                    document.getElementById('progress-container').classList.add('hidden');
+
+                    setTimeout(() => { if(map) map.invalidateSize(); }, 200);
+                }
             }
 
-            globalData = mock.map((item, i) => ({
-                no: item.No,
-                announce_date: item.announce_date,
-                province_onset: item.province_of_onset,
-                district_onset: item.district_onset,
-                sex: cleanGender(item.sex),
-                age: item.age,
-                age_group: getAgeGroup(item.age),
-                risk: item.risk,
-                nationality: item.nationality
-            }));
+            step();
+        }
 
-            applyFilters();
-            updateProvinceDropdown();
-            setTimeout(() => { if(map) map.invalidateSize(); }, 200);
+        function resetBanner() {
+            document.getElementById('progress-container').classList.add('hidden');
+            document.getElementById('stream-title').innerText = 'ยังไม่ได้นำเข้าข้อมูล';
+            document.getElementById('stream-desc').innerText = 'กรุณากลุ่มปุ่ม "นำเข้าไฟล์ Excel/CSV" ด้านบนเพื่อเริ่มอัปโหลดชุดข้อมูลของคุณ';
         }
 
         function updateProvinceDropdown() {
@@ -577,7 +645,7 @@
             const items = filteredData.slice(start, end);
 
             if (items.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-slate-500">ไม่พบข้อมูลตามเงื่อนไข</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-slate-500">ยังไม่มีข้อมูล กรุณานำเข้าไฟล์ Excel/CSV ด้านบน</td></tr>`;
                 return;
             }
 
@@ -616,50 +684,8 @@
             }
         }
 
-        function handleFileImport(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const json = XLSX.utils.sheet_to_json(sheet);
-
-                    if (json.length > 0) {
-                        let imported = json.map((item, index) => {
-                            let ageVal = item.age !== undefined ? item.age : item.Age;
-                            return {
-                                no: item.No || item.no || (globalData.length + index + 1),
-                                announce_date: item.announce_date || item.Announce_date || '-',
-                                province_onset: item.province_of_onset || item.province || 'ไม่ระบุ',
-                                district_onset: item.district_of_onset || '-',
-                                sex: cleanGender(item.sex),
-                                age: ageVal || '-',
-                                age_group: getAgeGroup(ageVal),
-                                risk: item.risk || item.Risk || 'อื่นๆ/ไม่ระบุ',
-                                nationality: item.nationality || item.nation || 'Thailand'
-                            };
-                        });
-                        globalData = globalData.concat(imported);
-                        applyFilters();
-                        updateProvinceDropdown();
-                        alert(`นำเข้าข้อมูลไฟล์สำเร็จ ${imported.length.toLocaleString()} รายการ`);
-                        setTimeout(() => { if(map) map.invalidateSize(); }, 100);
-                    } else {
-                        alert('ไม่พบข้อมูลภายในไฟล์');
-                    }
-                } catch (err) {
-                    console.error(err);
-                    alert('เกิดข้อผิดพลาดในการอ่านไฟล์');
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        }
-
         function exportToExcel() {
+            if (filteredData.length === 0) { alert('ไม่มีข้อมูลสำหรับส่งออก'); return; }
             const ws = XLSX.utils.json_to_sheet(filteredData);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "COVID19_Export");
@@ -667,6 +693,7 @@
         }
 
         function exportToCSV() {
+            if (filteredData.length === 0) { alert('ไม่มีข้อมูลสำหรับส่งออก'); return; }
             const ws = XLSX.utils.json_to_sheet(filteredData);
             const csv = XLSX.utils.sheet_to_csv(ws);
             const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
@@ -677,8 +704,6 @@
             link.click();
             document.body.removeChild(link);
         }
-
-        window.onload = loadInitialData;
     </script>
 </body>
 </html>
