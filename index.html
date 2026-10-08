@@ -196,6 +196,16 @@
                 </div>
             </div>
 
+            <!-- Regional Summary Chart -->
+            <div class="bg-slate-800 p-6 rounded-xl shadow-md border border-slate-700">
+                <h2 class="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-pie text-amber-400"></i> สรุปจำนวนผู้ป่วยแยกตามภูมิภาค
+                </h2>
+                <div class="relative h-80">
+                    <canvas id="regionChart"></canvas>
+                </div>
+            </div>
+
             <!-- Map Section -->
             <div class="bg-slate-800 p-6 rounded-xl shadow-md border border-slate-700">
                 <div class="flex justify-between items-center mb-4">
@@ -273,6 +283,7 @@
         let riskChartInstance = null;
         let provinceChartInstance = null;
         let timelineChartInstance = null;
+        let regionChartInstance = null;
 
         const provinceCoords = {
             "กรุงเทพมหานคร": [13.7563, 100.5018], "สมุทรปราการ": [13.5991, 100.5975], "นนทบุรี": [13.8591, 100.5217],
@@ -822,6 +833,10 @@
             let fCount = 0, mCount = 0, oCount = 0;
             let riskMap = {};
             let provinceMap = {};
+            let regionMap = Object.fromEntries(
+                Object.keys(regionStyles).map(region => [region, 0])
+            );
+            let unknownRegionCount = 0;
             let dateMap = {};
 
             filteredData.forEach(item => {
@@ -837,6 +852,9 @@
 
                 let province = item.province_onset || 'ไม่ระบุ';
                 provinceMap[province] = (provinceMap[province] || 0) + 1;
+                const region = provinceRegion[province];
+                if (region) regionMap[region]++;
+                else unknownRegionCount++;
 
                 let dt = item.announce_date || '-';
                 if(dt && dt !== '-') {
@@ -853,6 +871,14 @@
                 .slice(0, 10);
             let provinceLabels = sortedProvinces.map(item => item[0]);
             let provinceData = sortedProvinces.map(item => item[1]);
+            let regionLabels = Object.keys(regionStyles).filter(region => regionMap[region] > 0);
+            let regionData = regionLabels.map(region => regionMap[region]);
+            let regionColors = regionLabels.map(region => regionStyles[region].color);
+            if (unknownRegionCount > 0) {
+                regionLabels.push('ไม่ระบุภูมิภาค');
+                regionData.push(unknownRegionCount);
+                regionColors.push('#94a3b8');
+            }
 
             let sortedDates = Object.keys(dateMap).sort();
             let timelineLabels = sortedDates;
@@ -986,6 +1012,38 @@
                             label: 'จำนวนผู้ป่วย (ราย)',
                             data: provinceData,
                             backgroundColor: '#f43f5e',
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+                            y: { ticks: { color: '#cbd5e1' }, grid: { display: false } }
+                        }
+                    }
+                });
+            }
+
+            // 6. Regional Summary Chart
+            const regionCtx = document.getElementById('regionChart').getContext('2d');
+            if (regionChartInstance) {
+                regionChartInstance.data.labels = regionLabels;
+                regionChartInstance.data.datasets[0].data = regionData;
+                regionChartInstance.data.datasets[0].backgroundColor = regionColors;
+                regionChartInstance.update('none');
+            } else {
+                regionChartInstance = new Chart(regionCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: regionLabels,
+                        datasets: [{
+                            label: 'จำนวนผู้ป่วย (ราย)',
+                            data: regionData,
+                            backgroundColor: regionColors,
                             borderRadius: 6
                         }]
                     },
