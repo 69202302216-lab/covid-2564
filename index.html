@@ -181,6 +181,16 @@
                 </div>
             </div>
 
+            <!-- Province Chart -->
+            <div class="bg-slate-800 p-6 rounded-xl shadow-md border border-slate-700">
+                <h2 class="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-bar text-rose-400"></i> 10 จังหวัดที่พบผู้ป่วยมากที่สุด
+                </h2>
+                <div class="relative h-96">
+                    <canvas id="provinceChart"></canvas>
+                </div>
+            </div>
+
             <!-- Map Section -->
             <div class="bg-slate-800 p-6 rounded-xl shadow-md border border-slate-700">
                 <div class="flex justify-between items-center mb-4">
@@ -247,6 +257,7 @@
         let ageChartInstance = null;
         let genderChartInstance = null;
         let riskChartInstance = null;
+        let provinceChartInstance = null;
         let timelineChartInstance = null;
 
         const provinceCoords = {
@@ -590,6 +601,7 @@
             let ageMap = { '0-12 ปี (เด็ก)': 0, '13-20 ปี (วัยรุ่น)': 0, '21-40 ปี (วัยทำงาน)': 0, '41-60 ปี (วัยกลางคน)': 0, '60 ปีขึ้นไป (ผู้สูงอายุ)': 0, 'ไม่ระบุ': 0 };
             let fCount = 0, mCount = 0, oCount = 0;
             let riskMap = {};
+            let provinceMap = {};
             let dateMap = {};
 
             filteredData.forEach(item => {
@@ -603,6 +615,9 @@
                 let r = item.risk || 'ไม่ระบุ';
                 riskMap[r] = (riskMap[r] || 0) + 1;
 
+                let province = item.province_onset || 'ไม่ระบุ';
+                provinceMap[province] = (provinceMap[province] || 0) + 1;
+
                 let dt = item.announce_date || '-';
                 if(dt && dt !== '-') {
                     dateMap[dt] = (dateMap[dt] || 0) + 1;
@@ -612,6 +627,12 @@
             let sortedRisks = Object.entries(riskMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
             let riskLabels = sortedRisks.map(item => item[0]);
             let riskData = sortedRisks.map(item => item[1]);
+
+            let sortedProvinces = Object.entries(provinceMap)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+            let provinceLabels = sortedProvinces.map(item => item[0]);
+            let provinceData = sortedProvinces.map(item => item[1]);
 
             let sortedDates = Object.keys(dateMap).sort();
             let timelineLabels = sortedDates;
@@ -725,6 +746,37 @@
                         scales: {
                             x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
                             y: { ticks: { color: '#cbd5e1', font: { size: 11 } }, grid: { display: false } }
+                        }
+                    }
+                });
+            }
+
+            // 5. Province Chart
+            const provinceCtx = document.getElementById('provinceChart').getContext('2d');
+            if (provinceChartInstance) {
+                provinceChartInstance.data.labels = provinceLabels;
+                provinceChartInstance.data.datasets[0].data = provinceData;
+                provinceChartInstance.update('none');
+            } else {
+                provinceChartInstance = new Chart(provinceCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: provinceLabels,
+                        datasets: [{
+                            label: 'จำนวนผู้ป่วย (ราย)',
+                            data: provinceData,
+                            backgroundColor: '#f43f5e',
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+                            y: { ticks: { color: '#cbd5e1' }, grid: { display: false } }
                         }
                     }
                 });
