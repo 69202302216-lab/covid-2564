@@ -344,11 +344,20 @@
             document.getElementById('banner-icon').innerHTML = '<i class="fa-solid fa-sync"></i>';
 
             const batchSize = 1000;
-            const allRecords = [];
+            const refreshEvery = 10;
             let total = null;
+            let offset = 0;
+            globalData = [];
+            filteredData = [];
+            selectedProvince = '';
+            currentPage = 1;
+            document.getElementById('province-select').innerHTML = '<option value="">-- ทุกจังหวัด --</option>';
+            document.getElementById('search-input').value = '';
+            document.getElementById('kpi-total').innerText = '0';
+            document.getElementById('table-body').innerHTML =
+                '<tr><td colspan="7" class="text-center py-6 text-slate-500">กำลังรอข้อมูลชุดแรกจาก API</td></tr>';
 
             try {
-                let offset = 0;
                 while (total === null || offset < total) {
                     const payload = await requestApiPage(offset, batchSize);
                     if (!payload || payload.success !== true || !payload.result) {
@@ -371,34 +380,41 @@
 
                     if (records.length === 0) break;
 
-                    allRecords.push(...records.map((record, index) =>
+                    const batch = records.map((record, index) =>
                         normalizeApiRecord(record, offset + index)
-                    ));
+                    );
+                    globalData.push(...batch);
                     offset += records.length;
 
                     const progress = total
-                        ? Math.min(100, Math.round((allRecords.length / total) * 100))
+                        ? Math.min(100, Math.round((globalData.length / total) * 100))
                         : 0;
                     document.getElementById('stream-title').innerText =
-                        `กำลังโหลดข้อมูล (${allRecords.length.toLocaleString()} / ${(total ?? 'ไม่ทราบจำนวน').toLocaleString()} รายการ)`;
-                    document.getElementById('stream-desc').innerText =
-                        `ดึงข้อมูลแล้ว ${Math.ceil(offset / batchSize).toLocaleString()} ชุด ชุดละ ${batchSize.toLocaleString()} รายการ`;
+                        `กำลังโหลดข้อมูล (${globalData.length.toLocaleString()} / ${(total ?? 'ไม่ทราบจำนวน').toLocaleString()} รายการ)`;
                     document.getElementById('stream-progress-bar').style.width = `${progress}%`;
+
+                    const batchNumber = Math.ceil(offset / batchSize);
+                    if (batchNumber === 1 || batchNumber % refreshEvery === 0 ||
+                        (total !== null && offset >= total) || records.length < batchSize) {
+                        updateProvinceDropdown();
+                        applyFilters();
+                        document.getElementById('stream-desc').innerText =
+                            `แสดงข้อมูลที่โหลดแล้ว ${globalData.length.toLocaleString()} รายการ`;
+                        setTimeout(() => { if (map) map.invalidateSize(); }, 0);
+                    } else {
+                        document.getElementById('stream-desc').innerText =
+                            `รับข้อมูลแล้ว ${globalData.length.toLocaleString()} รายการ กำลังอัปเดตแดชบอร์ด`;
+                    }
 
                     if (records.length < batchSize && (total === null || offset >= total)) break;
                 }
 
-                if (allRecords.length === 0) {
+                if (globalData.length === 0) {
                     throw new Error('API ไม่พบข้อมูล');
                 }
 
-                globalData = allRecords;
-                selectedProvince = '';
-                document.getElementById('province-select').value = '';
-                document.getElementById('search-input').value = '';
-                currentPage = 1;
                 updateProvinceDropdown();
-                resetProvinceFilter();
+                applyFilters();
 
                 document.getElementById('stream-banner').className = 'bg-emerald-950/60 border border-emerald-600/50 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg';
                 document.getElementById('banner-icon').className = 'w-10 h-10 bg-emerald-600 text-white rounded-full flex items-center justify-center text-lg shadow-md';
@@ -410,14 +426,13 @@
                 document.getElementById('progress-container').classList.add('hidden');
             } catch (error) {
                 console.error('โหลดข้อมูลจาก Opend API ไม่สำเร็จ:', error);
-                if (allRecords.length > 0) {
-                    globalData = allRecords;
+                if (globalData.length > 0) {
                     currentPage = 1;
                     updateProvinceDropdown();
                     applyFilters();
                 }
-                const partialCount = allRecords.length
-                    ? ` โหลดได้บางส่วน ${allRecords.length.toLocaleString()} รายการ`
+                const partialCount = globalData.length
+                    ? ` แสดงข้อมูลที่โหลดได้ ${globalData.length.toLocaleString()} รายการ`
                     : '';
                 showApiLoadError(`${error.message}.${partialCount}`);
             } finally {
