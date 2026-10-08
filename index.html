@@ -78,7 +78,7 @@
                 </div>
                 <div>
                     <h4 class="font-bold text-slate-200 text-sm md:text-base" id="stream-title">พร้อมรับไฟล์ข้อมูลของคุณ</h4>
-                    <p class="text-slate-400 text-xs md:text-sm" id="stream-desc">กำลังโหลดข้อมูล API ทีละ 1,000 รายการ หรือเลือกไฟล์ Excel/CSV ด้านบน</p>
+                    <p class="text-slate-400 text-xs md:text-sm" id="stream-desc">กำลังโหลดข้อมูล API ทีละ 10,000 รายการ หรือเลือกไฟล์ Excel/CSV ด้านบน</p>
                 </div>
             </div>
             <div class="w-full md:w-64 bg-slate-700 rounded-full h-3 overflow-hidden border border-slate-600 hidden" id="progress-container">
@@ -384,12 +384,12 @@
             document.getElementById('progress-container').classList.remove('hidden');
             document.getElementById('stream-banner').className = 'bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg';
             document.getElementById('stream-title').innerText = 'กำลังเรียก Opend API...';
-            document.getElementById('stream-desc').innerText = 'กำลังโหลดข้อมูลทั้งหมด ครั้งละ 1,000 รายการ';
+            document.getElementById('stream-desc').innerText = 'กำลังโหลดข้อมูลทั้งหมด ครั้งละ 10,000 รายการ';
             document.getElementById('banner-icon').className = 'w-10 h-10 bg-violet-600 text-white rounded-full flex items-center justify-center text-lg shadow-md animate-spin';
             document.getElementById('banner-icon').innerHTML = '<i class="fa-solid fa-sync"></i>';
 
-            const batchSize = 1000;
-            const refreshEvery = 10;
+            const batchSize = 10000;
+            const refreshEvery = 1;
             let total = null;
             let offset = 0;
             globalData = [];
@@ -706,7 +706,7 @@
         function resetBanner() {
             document.getElementById('progress-container').classList.add('hidden');
             document.getElementById('stream-title').innerText = 'พร้อมรับไฟล์ข้อมูลของคุณ';
-            document.getElementById('stream-desc').innerText = 'ระบบโหลดข้อมูล API ทั้งหมดทีละ 1,000 รายการ หรือเลือกไฟล์ Excel/CSV ด้านบน';
+            document.getElementById('stream-desc').innerText = 'ระบบโหลดข้อมูล API ทั้งหมดทีละ 10,000 รายการ หรือเลือกไฟล์ Excel/CSV ด้านบน';
             document.getElementById('banner-icon').className = 'w-10 h-10 bg-amber-600 text-white rounded-full flex items-center justify-center text-lg shadow-md';
             document.getElementById('banner-icon').innerHTML = '<i class="fa-solid fa-file-arrow-up"></i>';
         }
