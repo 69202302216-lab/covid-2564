@@ -14,6 +14,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- SheetJS (XLSX) -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- jQuery (JSONP API requests) -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -48,6 +50,9 @@
                 </div>
             </div>
             <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
+                <button type="button" id="load-api-button" onclick="loadApiData()" class="bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-md">
+                    <i class="fa-solid fa-cloud-arrow-down"></i> โหลดข้อมูล API ทั้งหมด
+                </button>
                 <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-md">
                     <i class="fa-solid fa-file-excel"></i> ส่งออก Excel
                 </button>
@@ -73,7 +78,7 @@
                 </div>
                 <div>
                     <h4 class="font-bold text-slate-200 text-sm md:text-base" id="stream-title">พร้อมรับไฟล์ข้อมูลของคุณ</h4>
-                    <p class="text-slate-400 text-xs md:text-sm" id="stream-desc">กรุณากดปุ่ม "เลือกไฟล์ Excel/CSV" ด้านบนเพื่อเริ่มโหลดข้อมูลเข้าแดชบอร์ด</p>
+                    <p class="text-slate-400 text-xs md:text-sm" id="stream-desc">กำลังโหลดข้อมูล 500 รายการจาก API หรือเลือกไฟล์ Excel/CSV ด้านบน</p>
                 </div>
             </div>
             <div class="w-full md:w-64 bg-slate-700 rounded-full h-3 overflow-hidden border border-slate-600 hidden" id="progress-container">
@@ -324,7 +329,158 @@
 
         window.onload = function() {
             initMap();
+            loadApiData();
         };
+
+        async function loadApiData() {
+            const button = document.getElementById('load-api-button');
+            button.disabled = true;
+            button.classList.add('opacity-50', 'cursor-not-allowed');
+            document.getElementById('progress-container').classList.remove('hidden');
+            document.getElementById('stream-banner').className = 'bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg';
+            document.getElementById('stream-title').innerText = 'กำลังเรียก Opend API...';
+            document.getElementById('stream-desc').innerText = 'กำลังโหลดข้อมูลทั้งหมด ครั้งละ 1,000 รายการ';
+            document.getElementById('banner-icon').className = 'w-10 h-10 bg-violet-600 text-white rounded-full flex items-center justify-center text-lg shadow-md animate-spin';
+            document.getElementById('banner-icon').innerHTML = '<i class="fa-solid fa-sync"></i>';
+
+            const batchSize = 1000;
+            const allRecords = [];
+            let total = null;
+
+            try {
+                let offset = 0;
+                while (total === null || offset < total) {
+                    const payload = await requestApiPage(offset, batchSize);
+                    if (!payload || payload.success !== true || !payload.result) {
+                        throw new Error(payload && payload.error
+                            ? JSON.stringify(payload.error)
+                            : 'API ส่งข้อมูลกลับมาไม่ถูกต้อง');
+                    }
+
+                    const records = payload.result.records;
+                    if (!Array.isArray(records)) {
+                        throw new Error('API ไม่พบรายการใน result.records');
+                    }
+
+                    const reportedTotal = Number(payload.result.total);
+                    if (total === null) {
+                        total = Number.isFinite(reportedTotal) && reportedTotal >= 0
+                            ? reportedTotal
+                            : null;
+                    }
+
+                    if (records.length === 0) break;
+
+                    allRecords.push(...records.map((record, index) =>
+                        normalizeApiRecord(record, offset + index)
+                    ));
+                    offset += records.length;
+
+                    const progress = total
+                        ? Math.min(100, Math.round((allRecords.length / total) * 100))
+                        : 0;
+                    document.getElementById('stream-title').innerText =
+                        `กำลังโหลดข้อมูล (${allRecords.length.toLocaleString()} / ${(total ?? 'ไม่ทราบจำนวน').toLocaleString()} รายการ)`;
+                    document.getElementById('stream-desc').innerText =
+                        `ดึงข้อมูลแล้ว ${Math.ceil(offset / batchSize).toLocaleString()} ชุด ชุดละ ${batchSize.toLocaleString()} รายการ`;
+                    document.getElementById('stream-progress-bar').style.width = `${progress}%`;
+
+                    if (records.length < batchSize && (total === null || offset >= total)) break;
+                }
+
+                if (allRecords.length === 0) {
+                    throw new Error('API ไม่พบข้อมูล');
+                }
+
+                globalData = allRecords;
+                selectedProvince = '';
+                document.getElementById('province-select').value = '';
+                document.getElementById('search-input').value = '';
+                currentPage = 1;
+                updateProvinceDropdown();
+                resetProvinceFilter();
+
+                document.getElementById('stream-banner').className = 'bg-emerald-950/60 border border-emerald-600/50 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg';
+                document.getElementById('banner-icon').className = 'w-10 h-10 bg-emerald-600 text-white rounded-full flex items-center justify-center text-lg shadow-md';
+                document.getElementById('banner-icon').innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+                document.getElementById('stream-title').innerText = `โหลด API สำเร็จ ${globalData.length.toLocaleString()} รายการ`;
+                document.getElementById('stream-desc').innerText =
+                    `ข้อมูลจาก data.go.th ทั้งหมด ${total === null ? globalData.length : total.toLocaleString()} รายการ`;
+                document.getElementById('stream-progress-bar').style.width = '100%';
+                document.getElementById('progress-container').classList.add('hidden');
+            } catch (error) {
+                console.error('โหลดข้อมูลจาก Opend API ไม่สำเร็จ:', error);
+                if (allRecords.length > 0) {
+                    globalData = allRecords;
+                    currentPage = 1;
+                    updateProvinceDropdown();
+                    applyFilters();
+                }
+                const partialCount = allRecords.length
+                    ? ` โหลดได้บางส่วน ${allRecords.length.toLocaleString()} รายการ`
+                    : '';
+                showApiLoadError(`${error.message}.${partialCount}`);
+            } finally {
+                button.disabled = false;
+                button.classList.remove('opacity-50', 'cursor-not-allowed');
+                setTimeout(() => { if (map) map.invalidateSize(); }, 200);
+            }
+        }
+
+        function requestApiPage(offset, limit) {
+            return new Promise((resolve, reject) => {
+                $.ajax({
+                    url: 'https://data.go.th/api/3/action/datastore_search',
+                    data: {
+                        resource_id: '1c2f6045-c600-410a-995c-a37a88594ab4',
+                        limit: limit,
+                        offset: offset
+                    },
+                    dataType: 'jsonp',
+                    cache: true,
+                    timeout: 30000,
+                    success: resolve,
+                    error: function(_xhr, status, error) {
+                        reject(new Error(status === 'timeout'
+                            ? `API timeout ที่ offset ${offset.toLocaleString()}`
+                            : `API request ล้มเหลวที่ offset ${offset.toLocaleString()} (${error || status})`));
+                    }
+                });
+            });
+        }
+
+        function showApiLoadError(message) {
+            document.getElementById('stream-banner').className = 'bg-red-950/60 border border-red-600/50 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg';
+            document.getElementById('banner-icon').className = 'w-10 h-10 bg-red-600 text-white rounded-full flex items-center justify-center text-lg shadow-md';
+            document.getElementById('banner-icon').innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+            document.getElementById('stream-title').innerText = 'โหลด API ไม่สำเร็จ';
+            document.getElementById('stream-desc').innerText = message;
+            document.getElementById('progress-container').classList.add('hidden');
+        }
+
+        function normalizeApiRecord(record, index) {
+            const fields = new Map(
+                Object.entries(record).map(([key, value]) => [key.trim().toLowerCase(), value])
+            );
+            const getValue = (...names) => names
+                .map(name => fields.get(name.toLowerCase()))
+                .find(value => value !== undefined && value !== null && value !== '');
+            const age = getValue('age') ?? '-';
+            const ageUnit = getValue('unit', 'age_unit', 'age unit') || 'ปี';
+
+            return {
+                no: getValue('no.', 'no', 'id') || index + 1,
+                announce_date: formatImportedDate(getValue('announce_date', 'notified date', 'date')),
+                province_onset: getValue('province_of_onset', 'province_of_isolation', 'province') || 'ไม่ระบุ',
+                district_onset: getValue('district_of_onset', 'district') || '-',
+                sex: cleanGender(getValue('sex')),
+                age: age,
+                age_unit: ageUnit,
+                age_group: getAgeGroup(age, ageUnit),
+                risk: getValue('risk') || 'อื่นๆ/ไม่ระบุ',
+                nationality: getValue('nationality', 'nation') || 'Thailand'
+            };
+        }
 
         // **ระบบสตรีมอ่านไฟล์ 45MB+ พร้อมจับชื่อฟิลด์ตามตัวอย่างจริง**
         function handleLargeFileImport(event) {
@@ -480,13 +636,17 @@
                 const day = String(value.getDate()).padStart(2, '0');
                 return `${year}-${month}-${day}`;
             }
+            if (typeof value === 'string') {
+                const dateMatch = value.match(/^(\d{4}-\d{2}-\d{2})(?:[T\s].*)?$/);
+                if (dateMatch) return dateMatch[1];
+            }
             return value === undefined || value === null || value === '' ? '-' : String(value);
         }
 
         function resetBanner() {
             document.getElementById('progress-container').classList.add('hidden');
             document.getElementById('stream-title').innerText = 'พร้อมรับไฟล์ข้อมูลของคุณ';
-            document.getElementById('stream-desc').innerText = 'กรุณากดปุ่ม "เลือกไฟล์ Excel/CSV" ด้านบนเพื่อเริ่มโหลดข้อมูลเข้าแดชบอร์ด';
+            document.getElementById('stream-desc').innerText = 'ระบบโหลด API 500 รายการให้อัตโนมัติ หรือเลือกไฟล์ Excel/CSV ด้านบน';
             document.getElementById('banner-icon').className = 'w-10 h-10 bg-amber-600 text-white rounded-full flex items-center justify-center text-lg shadow-md';
             document.getElementById('banner-icon').innerHTML = '<i class="fa-solid fa-file-arrow-up"></i>';
         }
