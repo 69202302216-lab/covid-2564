@@ -78,7 +78,7 @@
                 </div>
                 <div>
                     <h4 class="font-bold text-slate-200 text-sm md:text-base" id="stream-title">พร้อมรับไฟล์ข้อมูลของคุณ</h4>
-                    <p class="text-slate-400 text-xs md:text-sm" id="stream-desc">กำลังโหลดข้อมูล 500 รายการจาก API หรือเลือกไฟล์ Excel/CSV ด้านบน</p>
+                    <p class="text-slate-400 text-xs md:text-sm" id="stream-desc">กำลังโหลดข้อมูล API ทีละ 1,000 รายการ หรือเลือกไฟล์ Excel/CSV ด้านบน</p>
                 </div>
             </div>
             <div class="w-full md:w-64 bg-slate-700 rounded-full h-3 overflow-hidden border border-slate-600 hidden" id="progress-container">
@@ -205,6 +205,15 @@
                     <span class="text-xs text-slate-400">อัปเดตแบบเรียลไทม์</span>
                 </div>
                 <div id="map"></div>
+                <div class="flex flex-wrap gap-x-5 gap-y-2 mt-4 text-xs text-slate-300" aria-label="คำอธิบายสีภูมิภาค">
+                    <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-red-500"></span>ภาคเหนือ</span>
+                    <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-amber-400"></span>ภาคตะวันออกเฉียงเหนือ</span>
+                    <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-blue-500"></span>ภาคกลาง</span>
+                    <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-emerald-400"></span>ภาคตะวันออก</span>
+                    <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-violet-400"></span>ภาคตะวันตก</span>
+                    <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-cyan-400"></span>ภาคใต้</span>
+                    <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full border-2 border-sky-400"></span>ขอบฟ้า: จังหวัดที่เลือก</span>
+                </div>
             </div>
 
             <!-- Data Table Section -->
@@ -292,6 +301,42 @@
             "ตรัง": [7.5563, 99.6112], "พัทลุง": [7.6167, 100.0744], "ปัตตานี": [6.8687, 101.2504], "ยะลา": [6.5411, 101.2804],
             "นราธิวาส": [6.4255, 101.8253]
         };
+
+        const regionStyles = {
+            'ภาคเหนือ': {
+                color: '#ef4444',
+                provinces: ['เชียงใหม่', 'เชียงราย', 'ลำปาง', 'ลำพูน', 'แม่ฮ่องสอน', 'น่าน', 'พะเยา', 'แพร่', 'อุตรดิตถ์', 'ตาก', 'สุโขทัย', 'พิษณุโลก', 'พิจิตร', 'เพชรบูรณ์', 'นครสวรรค์', 'อุทัยธานี', 'กำแพงเพชร']
+            },
+            'ภาคตะวันออกเฉียงเหนือ': {
+                color: '#fbbf24',
+                provinces: ['นครราชสีมา', 'บุรีรัมย์', 'สุรินทร์', 'ศรีสะเกษ', 'อุบลราชธานี', 'ยโสธร', 'ชัยภูมิ', 'อำนาจเจริญ', 'หนองบัวลำภู', 'ขอนแก่น', 'อุดรธานี', 'เลย', 'หนองคาย', 'มหาสารคาม', 'ร้อยเอ็ด', 'กาฬสินธุ์', 'สกลนคร', 'นครพนม', 'มุกดาหาร', 'บึงกาฬ']
+            },
+            'ภาคกลาง': {
+                color: '#3b82f6',
+                provinces: ['กรุงเทพมหานคร', 'นนทบุรี', 'ปทุมธานี', 'สมุทรปราการ', 'สมุทรสาคร', 'สมุทรสงคราม', 'นครปฐม', 'พระนครศรีอยุธยา', 'อ่างทอง', 'ลพบุรี', 'สิงห์บุรี', 'ชัยนาท', 'สระบุรี', 'นครนายก']
+            },
+            'ภาคตะวันออก': {
+                color: '#34d399',
+                provinces: ['ชลบุรี', 'ระยอง', 'จันทบุรี', 'ตราด', 'ฉะเชิงเทรา', 'ปราจีนบุรี', 'สระแก้ว']
+            },
+            'ภาคตะวันตก': {
+                color: '#a78bfa',
+                provinces: ['กาญจนบุรี', 'ราชบุรี', 'สุพรรณบุรี', 'เพชรบุรี', 'ประจวบคีรีขันธ์']
+            },
+            'ภาคใต้': {
+                color: '#22d3ee',
+                provinces: ['นครศรีธรรมราช', 'กระบี่', 'พังงา', 'ภูเก็ต', 'สุราษฎร์ธานี', 'ระนอง', 'ชุมพร', 'สงขลา', 'สตูล', 'ตรัง', 'พัทลุง', 'ปัตตานี', 'ยะลา', 'นราธิวาส']
+            }
+        };
+        const provinceRegion = Object.fromEntries(
+            Object.entries(regionStyles).flatMap(([region, style]) =>
+                style.provinces.map(province => [province, region])
+            )
+        );
+
+        function getProvinceRegionColor(province) {
+            return regionStyles[provinceRegion[province]]?.color || '#94a3b8';
+        }
 
         function getAgeGroup(age, unit = 'ปี') {
             let num = parseFloat(age);
@@ -403,7 +448,7 @@
                         setTimeout(() => { if (map) map.invalidateSize(); }, 0);
                     } else {
                         document.getElementById('stream-desc').innerText =
-                            `รับข้อมูลแล้ว ${globalData.length.toLocaleString()} รายการ กำลังอัปเดตแดชบอร์ด`;
+                            `รับข้อมูลแล้ว ${globalData.length.toLocaleString()} รายการ แดชบอร์ดอัปเดตทุก ${(batchSize * refreshEvery).toLocaleString()} รายการ`;
                     }
 
                     if (records.length < batchSize && (total === null || offset >= total)) break;
@@ -661,7 +706,7 @@
         function resetBanner() {
             document.getElementById('progress-container').classList.add('hidden');
             document.getElementById('stream-title').innerText = 'พร้อมรับไฟล์ข้อมูลของคุณ';
-            document.getElementById('stream-desc').innerText = 'ระบบโหลด API 500 รายการให้อัตโนมัติ หรือเลือกไฟล์ Excel/CSV ด้านบน';
+            document.getElementById('stream-desc').innerText = 'ระบบโหลดข้อมูล API ทั้งหมดทีละ 1,000 รายการ หรือเลือกไฟล์ Excel/CSV ด้านบน';
             document.getElementById('banner-icon').className = 'w-10 h-10 bg-amber-600 text-white rounded-full flex items-center justify-center text-lg shadow-md';
             document.getElementById('banner-icon').innerHTML = '<i class="fa-solid fa-file-arrow-up"></i>';
         }
@@ -972,9 +1017,10 @@
                 let coords = provinceCoords[prov];
                 if (coords) {
                     let radius = Math.min(Math.max(Math.sqrt(count) * 3000, 10000), 70000);
+                    const regionColor = getProvinceRegionColor(prov);
                     let circle = L.circle(coords, {
-                        color: selectedProvince === prov ? '#38bdf8' : '#f87171',
-                        fillColor: selectedProvince === prov ? '#0ea5e9' : '#ef4444',
+                        color: selectedProvince === prov ? '#38bdf8' : regionColor,
+                        fillColor: regionColor,
                         fillOpacity: 0.6,
                         radius: radius
                     }).addTo(markersLayer);
