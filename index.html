@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>COVID-19 Thailand Monitoring Dashboard - Full Data Stream</title>
+    <title>COVID-19 Thailand Monitoring Dashboard - Safe Stream</title>
     <!-- Google Fonts: Sarabun -->
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Tailwind CSS -->
@@ -44,7 +44,7 @@
                 </div>
                 <div>
                     <h1 class="text-2xl font-bold tracking-wide">COVID-19 Thailand Surveillance</h1>
-                    <p class="text-rose-200 text-sm" id="header-status">ระบบดึงข้อมูลระดับแสนรายการผ่าน Open Data API (Streaming 500/รอบ)</p>
+                    <p class="text-rose-200 text-sm" id="header-status">ระบบดึงข้อมูลระดับแสนรายการ (Delay 5s Safe Stream)</p>
                 </div>
             </div>
             <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
@@ -72,8 +72,8 @@
                     <i class="fa-solid fa-sync fa-spin"></i>
                 </div>
                 <div>
-                    <h4 class="font-bold text-red-200 text-sm md:text-base" id="stream-title">กำลังเชื่อมต่อ API เพื่อดึงข้อมูลทั้งหมด...</h4>
-                    <p class="text-slate-400 text-xs md:text-sm" id="stream-desc">ระบบกำลังทยอยดึงข้อมูลทีละ 500 รายการต่อเนื่องจนกว่าจะครบทุกแสนรายการ</p>
+                    <h4 class="font-bold text-red-200 text-sm md:text-base" id="stream-title">กำลังเตรียมเชื่อมต่อ API...</h4>
+                    <p class="text-slate-400 text-xs md:text-sm" id="stream-desc">ระบบจะทยอยดึงข้อมูลทีละ 500 รายการพร้อมระบบหน่วงเวลาปลอดภัย</p>
                 </div>
             </div>
             <div class="w-full md:w-64 bg-slate-700 rounded-full h-3 overflow-hidden border border-slate-600" id="progress-container">
@@ -300,15 +300,29 @@
             }
         }
 
-        // ระบบดึงข้อมูลจาก API แบบวนลูปดึงทีละ 500 รายการต่อเนื่องจนครบทุกแสนรายการ
-        async function fetchAPIStream() {
+        // ฟังก์ชันหน่วงเวลา 5 วินาที
+        function wait5Seconds() {
+            return new Promise(resolve => {
+                let secondsLeft = 5;
+                let timerInterval = setInterval(() => {
+                    document.getElementById('stream-desc').innerText = `ระบบกำลังหน่วงเวลาปลอดภัย รอส่งคำขอใหม่ในอีก ${secondsLeft} วินาที...`;
+                    secondsLeft--;
+                    if (secondsLeft < 0) {
+                        clearInterval(timerInterval);
+                        resolve();
+                    }
+                }, 1000);
+            });
+        }
+
+        // ระบบดึงข้อมูลจาก API พร้อม Delay 5 วินาทีเมื่อขึ้นรอบใหม่
+        async function fetchAPIStreamWithDelay() {
             initMap();
-            let limit = 500; // ดึงรอบละ 500 รายการตามที่คุณต้องการ
+            let limit = 500; // ดึงทีละ 500 รายการ
             let offset = 0;
-            let totalRecords = 100000; // ค่าเริ่มต้นสำรอง
+            let totalRecords = 100000;
 
             try {
-                // เช็คจำนวนทั้งหมด (total) จาก API รอบแรก
                 let targetUrl = `https://opend.data.go.th/get-ckan/datastore_search?resource_id=${RESOURCE_ID}&limit=1&offset=0&api-key=${API_KEY}`;
                 let proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
                 let firstRes = await fetch(proxyUrl);
@@ -318,7 +332,6 @@
                     totalRecords = firstJson.result.total;
                 }
 
-                // วนลูปดึงข้อมูลต่อเนื่องจนครบจำนวนทั้งหมดในระบบ (แสนรายการ)
                 while (true) {
                     let pageUrl = `https://opend.data.go.th/get-ckan/datastore_search?resource_id=${RESOURCE_ID}&limit=${limit}&offset=${offset}&api-key=${API_KEY}`;
                     let pageProxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(pageUrl)}`;
@@ -353,23 +366,23 @@
                     let percent = Math.min(Math.round((globalData.length / totalRecords) * 100), 100);
                     document.getElementById('stream-title').innerText = `กำลังดึงข้อมูลผ่าน API (${globalData.length.toLocaleString()} / ${totalRecords.toLocaleString()} รายการ)`;
                     document.getElementById('stream-progress-bar').style.width = percent + '%';
-                    document.getElementById('stream-desc').innerText = `กำลังทยอยดึงข้อมูลทีละ 500 รายการต่อเนื่อง... (${percent}%)`;
 
-                    // เงื่อนไขหยุดเมื่อดึงครบตามจำนวน total หรือหมดข้อมูล
                     if (batch.length < limit || globalData.length >= totalRecords) {
                         break;
                     }
 
                     offset += limit;
-                    await new Promise(r => setTimeout(r, 10)); // หน่วงเวลาเล็กน้อยป้องกันเว็บค้าง
+
+                    // ** ทำตามเงื่อนไข: หน่วงเวลา Delay 5 วินาทีก่อนส่งคำขอรอบถัดไป **
+                    await wait5Seconds();
                 }
 
-                // โหลดครบสำเร็จ
+                // โหลดสำเร็จสมบูรณ์
                 document.getElementById('stream-banner').className = "bg-emerald-950/60 border border-emerald-600/50 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg";
                 document.getElementById('banner-icon').className = "w-10 h-10 bg-emerald-600 text-white rounded-full flex items-center justify-center text-lg shadow-md";
                 document.getElementById('banner-icon').innerHTML = '<i class="fa-solid fa-circle-check"></i>';
                 document.getElementById('stream-title').innerText = `ดึงข้อมูลสำเร็จทั้งหมด ${globalData.length.toLocaleString()} รายการ`;
-                document.getElementById('stream-desc').innerText = 'ระบบเชื่อมต่อ API และแสดงผลข้อมูลระดับแสนรายการครบถ้วนสมบูรณ์';
+                document.getElementById('stream-desc').innerText = 'ระบบเชื่อมต่อ API สำเร็จครบถ้วน';
                 document.getElementById('progress-container').classList.add('hidden');
 
                 setTimeout(() => { if(map) map.invalidateSize(); }, 200);
@@ -377,7 +390,7 @@
             } catch (err) {
                 console.warn('API Stream failed:', err);
                 document.getElementById('stream-title').innerText = 'การเชื่อมต่อ API ขัดข้อง (CORS/Network)';
-                document.getElementById('stream-desc').innerText = 'คุณสามารถใช้ปุ่ม "นำเข้าไฟล์เพิ่ม" ด้านบนเพื่ออัปโหลดไฟล์ข้อมูลของคุณเองได้ทันที';
+                document.getElementById('stream-desc').innerText = 'สามารถกดปุ่ม "นำเข้าไฟล์เพิ่ม" ด้านบนเพื่อใช้งานต่อได้ทันที';
                 document.getElementById('banner-icon').className = "w-10 h-10 bg-amber-600 text-white rounded-full flex items-center justify-center text-lg shadow-md";
                 document.getElementById('banner-icon').innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
                 document.getElementById('progress-container').classList.add('hidden');
@@ -725,7 +738,7 @@
             document.body.removeChild(link);
         }
 
-        window.onload = fetchAPIStream;
+        window.onload = fetchAPIStreamWithDelay;
     </script>
 </body>
 </html>
