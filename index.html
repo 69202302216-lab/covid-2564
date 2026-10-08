@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>COVID-19 Thailand Monitoring Dashboard - Hybrid Mode</title>
+    <title>COVID-19 Thailand Monitoring Dashboard - Timeline & Analytics</title>
     <!-- Google Fonts: Sarabun -->
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Tailwind CSS -->
@@ -44,7 +44,7 @@
                 </div>
                 <div>
                     <h1 class="text-2xl font-bold tracking-wide">COVID-19 Thailand Surveillance</h1>
-                    <p class="text-rose-200 text-sm" id="header-status">ระบบเฝ้าระวังและวิเคราะห์ข้อมูลโควิด-19 (Hybrid High-Performance)</p>
+                    <p class="text-rose-200 text-sm" id="header-status">ระบบรายงานและวิเคราะห์ไทม์ไลน์ผู้ป่วยโควิด-19</p>
                 </div>
             </div>
             <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
@@ -65,15 +65,15 @@
     <!-- Main Container -->
     <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full space-y-6">
 
-        <!-- Status & Progress Banner -->
+        <!-- Status Banner -->
         <div id="stream-banner" class="bg-emerald-950/60 border border-emerald-600/50 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-emerald-600 text-white rounded-full flex items-center justify-center text-lg shadow-md" id="banner-icon">
+                <div class="w-10 h-10 bg-emerald-600 text-white rounded-full flex items-center justify-center text-lg shadow-md">
                     <i class="fa-solid fa-circle-check"></i>
                 </div>
                 <div>
-                    <h4 class="font-bold text-emerald-200 text-sm md:text-base" id="stream-title">โหลดข้อมูลสำเร็จพร้อมใช้งานทันที (Hybrid Mode)</h4>
-                    <p class="text-slate-300 text-xs md:text-sm" id="stream-desc">ระบบพร้อมแสดงผลกราฟ แผนที่ความหนาแน่น และรายงานความเสี่ยง (สามารถกดนำเข้าไฟล์ Excel ของคุณเองได้)</p>
+                    <h4 class="font-bold text-emerald-200 text-sm md:text-base" id="stream-title">พร้อมใช้งานเต็มรูปแบบ (ระบบวิเคราะห์ไทม์ไลน์และวันที่สูงสุด)</h4>
+                    <p class="text-slate-300 text-xs md:text-sm" id="stream-desc">แสดงช่วงเวลาของข้อมูล วันที่ยอดผู้ป่วยพุ่งสูงสุด พร้อมกราฟแนวโน้มและแผนที่</p>
                 </div>
             </div>
         </div>
@@ -111,20 +111,20 @@
                 </div>
                 <div class="bg-slate-800 p-6 rounded-xl shadow-md border border-slate-700 flex items-center justify-between">
                     <div>
-                        <p class="text-sm font-medium text-slate-400">สัดส่วน หญิง / ชาย</p>
-                        <h3 class="text-base font-bold text-rose-300 mt-1" id="kpi-gender-ratio">-</h3>
+                        <p class="text-sm font-medium text-slate-400">ช่วงวันที่ของข้อมูล</p>
+                        <h3 class="text-xs font-bold text-rose-300 mt-2" id="kpi-date-range">-</h3>
                     </div>
                     <div class="w-12 h-12 bg-rose-950 text-rose-400 rounded-xl flex items-center justify-center text-xl border border-rose-900/50">
-                        <i class="fa-solid fa-venus-mars"></i>
+                        <i class="fa-solid fa-calendar-days"></i>
                     </div>
                 </div>
                 <div class="bg-slate-800 p-6 rounded-xl shadow-md border border-slate-700 flex items-center justify-between">
                     <div>
-                        <p class="text-sm font-medium text-slate-400">กลุ่มอายุสูงสุด</p>
-                        <h3 class="text-base font-bold text-amber-300 mt-1" id="kpi-top-age">-</h3>
+                        <p class="text-sm font-medium text-slate-400">วันที่ยอดผู้ป่วยสูงสุด (Peak)</p>
+                        <h3 class="text-xs font-bold text-amber-300 mt-2" id="kpi-peak-date">-</h3>
                     </div>
                     <div class="w-12 h-12 bg-amber-950 text-amber-400 rounded-xl flex items-center justify-center text-xl border border-amber-900/50">
-                        <i class="fa-solid fa-chart-pie"></i>
+                        <i class="fa-solid fa-chart-line"></i>
                     </div>
                 </div>
                 <div class="bg-slate-800 p-6 rounded-xl shadow-md border border-slate-700 flex items-center justify-between">
@@ -138,7 +138,17 @@
                 </div>
             </div>
 
-            <!-- Charts Section 1 -->
+            <!-- Timeline Chart Section (กราฟแสดงแนวโน้มผู้ป่วยตามช่วงเวลา) -->
+            <div class="bg-slate-800 p-6 rounded-xl shadow-md border border-slate-700">
+                <h2 class="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-area text-red-500"></i> กราฟแนวโน้มผู้ป่วยตามช่วงเวลา (Timeline Analysis)
+                </h2>
+                <div class="relative h-80">
+                    <canvas id="timelineChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Charts Section 1: Age & Gender -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="bg-slate-800 p-6 rounded-xl shadow-md border border-slate-700">
                     <h2 class="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
@@ -234,6 +244,7 @@
         let ageChartInstance = null;
         let genderChartInstance = null;
         let riskChartInstance = null;
+        let timelineChartInstance = null;
 
         const provinceCoords = {
             "กรุงเทพมหานคร": [13.7563, 100.5018], "สมุทรปราการ": [13.5991, 100.5975], "นนทบุรี": [13.8591, 100.5217],
@@ -294,25 +305,23 @@
             }
         }
 
-        // ระบบ Hybrid: สร้างชุดข้อมูลจำลองขนาดใหญ่ทันที ป้องกัน CORS ขัดข้อง พร้อมให้คุณกดนำเข้าไฟล์ Excel ได้อิสระ
-        function loadHybridData() {
+        // โหลดข้อมูลเริ่มต้นอัตโนมัติพร้อมวันที่สมจริงสำหรับการวิเคราะห์ไทม์ไลน์
+        function loadInitialData() {
             initMap();
             let mock = [];
             const provs = Object.keys(provinceCoords);
-            const risks = [
-                "สัมผัสใกล้ชิดผู้ป่วยยืนยันก่อนหน้า", 
-                "ไปสถานที่ชุมชน เช่น ตลาดนัด สถานที่ท่องเที่ยว", 
-                "อาชีพเสี่ยง เช่น ทำงานในสถานที่แออัด", 
-                "อื่นๆ", 
-                "การ 3", 
-                "ตรวจพบขณะ 3"
-            ];
+            const risks = ["สัมผัสใกล้ชิดผู้ป่วยยืนยัน", "ไปสถานที่ชุมชน", "อาชีพเสี่ยง", "อื่นๆ"];
             
-            // จำลองข้อมูล 10,000 รายการแรกเพื่อความลื่นไหล (และผู้ใช้สามารถ Import ไฟล์เพิ่มได้เป็นแสนรายการผ่านปุ่มขวาบน)
-            for(let i=1; i<=10000; i++) {
+            // สร้างข้อมูลตัวอย่างกระจายตามวันในปี 2021
+            const baseDate = new Date(2021, 8, 1);
+            for(let i=1; i<=8000; i++) {
+                let d = new Date(baseDate);
+                d.setDate(d.getDate() + (i % 60)); // กระจายในช่วง 60 วัน
+                let dateStr = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${d.getFullYear()}`;
+
                 mock.push({
                     No: 1859100 + i,
-                    announce_date: "26/10/2021",
+                    announce_date: dateStr,
                     sex: i % 2 === 0 ? "ชาย" : "หญิง",
                     age: 15 + (i % 60),
                     nationality: "Thailand",
@@ -414,6 +423,7 @@
             let female = 0, male = 0;
             let ageGroupsCount = {};
             let riskCount = {};
+            let dateCount = {};
 
             filteredData.forEach(item => {
                 if (item.sex === 'หญิง') female++;
@@ -423,6 +433,11 @@
                 
                 let r = item.risk || 'ไม่ระบุ';
                 riskCount[r] = (riskCount[r] || 0) + 1;
+
+                let dt = item.announce_date || '-';
+                if(dt && dt !== '-') {
+                    dateCount[dt] = (dateCount[dt] || 0) + 1;
+                }
             });
 
             document.getElementById('kpi-gender-ratio').innerText = `หญิง ${female.toLocaleString()} / ชาย ${male.toLocaleString()}`;
@@ -433,12 +448,25 @@
             let topRisk = Object.keys(riskCount).reduce((a, b) => riskCount[a] > riskCount[b] ? a : b, '-');
             document.getElementById('kpi-top-risk').innerText = topRisk;
             document.getElementById('kpi-top-risk').title = topRisk;
+
+            // วิเคราะห์ช่วงวันที่ และวันที่สูงสุด
+            let dates = Object.keys(dateCount);
+            if (dates.length > 0) {
+                // หา Peak Date (วันที่ยอดสูงสุด)
+                let peakDate = dates.reduce((a, b) => dateCount[a] > dateCount[b] ? a : b);
+                document.getElementById('kpi-peak-date').innerText = `${peakDate} (${dateCount[peakDate].toLocaleString()} ราย)`;
+                document.getElementById('kpi-date-range').innerText = `${dates[0]} ถึง ${dates[dates.length - 1]}`;
+            } else {
+                document.getElementById('kpi-peak-date').innerText = '-';
+                document.getElementById('kpi-date-range').innerText = '-';
+            }
         }
 
         function renderCharts() {
             let ageMap = { '0-12 ปี (เด็ก)': 0, '13-20 ปี (วัยรุ่น)': 0, '21-40 ปี (วัยทำงาน)': 0, '41-60 ปี (วัยกลางคน)': 0, '60 ปีขึ้นไป (ผู้สูงอายุ)': 0, 'ไม่ระบุ': 0 };
             let fCount = 0, mCount = 0, oCount = 0;
             let riskMap = {};
+            let dateMap = {};
 
             filteredData.forEach(item => {
                 if (ageMap[item.age_group] !== undefined) ageMap[item.age_group]++;
@@ -450,13 +478,56 @@
 
                 let r = item.risk || 'ไม่ระบุ';
                 riskMap[r] = (riskMap[r] || 0) + 1;
+
+                let dt = item.announce_date || '-';
+                if(dt && dt !== '-') {
+                    dateMap[dt] = (dateMap[dt] || 0) + 1;
+                }
             });
 
             let sortedRisks = Object.entries(riskMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
             let riskLabels = sortedRisks.map(item => item[0]);
             let riskData = sortedRisks.map(item => item[1]);
 
-            // 1. Age Chart
+            // เตรียมข้อมูล Timeline Chart
+            let sortedDates = Object.keys(dateMap).sort();
+            let timelineLabels = sortedDates;
+            let timelineData = sortedDates.map(d => dateMap[d]);
+
+            // 1. Timeline Chart (กราฟแสดงแนวโน้มตามช่วงเวลา)
+            const timelineCtx = document.getElementById('timelineChart').getContext('2d');
+            if (timelineChartInstance) {
+                timelineChartInstance.data.labels = timelineLabels;
+                timelineChartInstance.data.datasets[0].data = timelineData;
+                timelineChartInstance.update('none');
+            } else {
+                timelineChartInstance = new Chart(timelineCtx, {
+                    type: 'line',
+                    data: {
+                        labels: timelineLabels,
+                        datasets: [{
+                            label: 'จำนวนผู้ป่วยรายวัน (ราย)',
+                            data: timelineData,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                            fill: true,
+                            tension: 0.3,
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { ticks: { color: '#94a3b8', maxTicksLimit: 15 }, grid: { color: '#334155' } },
+                            y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+                        }
+                    }
+                });
+            }
+
+            // 2. Age Chart
             const ageCtx = document.getElementById('ageChart').getContext('2d');
             if (ageChartInstance) {
                 ageChartInstance.data.datasets[0].data = Object.values(ageMap);
@@ -483,7 +554,7 @@
                 });
             }
 
-            // 2. Gender Chart
+            // 3. Gender Chart
             const genderCtx = document.getElementById('genderChart').getContext('2d');
             if (genderChartInstance) {
                 genderChartInstance.data.datasets[0].data = [fCount, mCount, oCount];
@@ -505,7 +576,7 @@
                 });
             }
 
-            // 3. Risk Chart
+            // 4. Risk Chart
             const riskCtx = document.getElementById('riskChart').getContext('2d');
             if (riskChartInstance) {
                 riskChartInstance.data.labels = riskLabels;
@@ -708,7 +779,7 @@
             document.body.removeChild(link);
         }
 
-        window.onload = loadHybridData;
+        window.onload = loadInitialData;
     </script>
 </body>
 </html>
